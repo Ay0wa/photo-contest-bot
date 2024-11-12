@@ -31,7 +31,7 @@ class Config:
 
 
 def load_config():
-    with open(CONFIG_PATH, 'r') as config_file:
+    with open(CONFIG_PATH, "r") as config_file:
         return json.load(config_file)
 
 
@@ -43,5 +43,5 @@ def setup_config(app: "Application"):
             token=raw_config["bot"]["token"],
             group_id=raw_config["bot"]["group_id"],
         ),
-        database=DatabaseConfig(**raw_config["database"])
+        database=DatabaseConfig(**raw_config["database"]),
     )

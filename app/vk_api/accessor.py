@@ -119,4 +119,9 @@ class VkApiAccessor(BaseAccessor):
             )
         ) as response:
             data = await response.json()
-            self.logger.info(data)
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+            elif "warning" in data:
+                self.logger.warning(data)

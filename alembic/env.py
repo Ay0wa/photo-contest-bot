@@ -16,10 +16,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.web.config import load_config
+from app.web.config import (
+    user,
+    password,
+    host,
+    port,
+    database,
+)
 
-raw_config = load_config()
-database_url = f"postgresql+asyncpg://{raw_config['database']['user']}:{raw_config['database']['password']}@{raw_config['database']['host']}/{raw_config['database']['database']}"
+database_url = f"postgresql+asyncpg://{user}:{password}@{host}/{database}"
 
 config.set_main_option("sqlalchemy.url", database_url)
 

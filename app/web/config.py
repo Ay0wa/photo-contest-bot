@@ -1,12 +1,25 @@
-import json
 import os
 import typing
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
+
 if typing.TYPE_CHECKING:
     from app.web.app import Application
 
-CONFIG_PATH = os.getenv("CONFIGPATH")
+load_dotenv()
+
+# DATABASE SETTINGS
+host = os.getenv("DB_HOST")
+port = os.getenv("DB_PORT")
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+database = os.getenv("DB_NAME")
+
+
+# BOT SETTINGS
+token = os.getenv("VK_TOKEN")
+group_id = os.getenv("GROUP_ID")
 
 
 @dataclass
@@ -30,18 +43,17 @@ class Config:
     database: DatabaseConfig | None = None
 
 
-def load_config():
-    with open(CONFIG_PATH, "r") as config_file:
-        return json.load(config_file)
-
-
 def setup_config(app: "Application"):
-    raw_config = load_config()
-
     app.config = Config(
         bot=BotConfig(
-            token=raw_config["bot"]["token"],
-            group_id=raw_config["bot"]["group_id"],
+            token=token,
+            group_id=group_id,
         ),
-        database=DatabaseConfig(**raw_config["database"]),
+        database=DatabaseConfig(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
+        ),
     )

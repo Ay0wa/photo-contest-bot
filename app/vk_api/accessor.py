@@ -238,7 +238,6 @@ class VkApiAccessor(BaseAccessor):
                 self.logger.warning(data)
 
     async def send_avatar(self, photo: Photo) -> None:
-
         owner_id = photo.owner_id
         photo_id = photo.id
 

@@ -12,6 +12,7 @@ class UpdateMessage:
     from_id: int
     text: str
     id: int
+    peer_id: int
     action: str | None = None
 
 
@@ -30,7 +31,12 @@ class Update:
 class Profile:
     id: int
     screen_name: str
-    photo: str
+    photo_100: str
+
+
+@dataclass
+class ProfileList:
+    profiles: list[Profile]
 
 
 @dataclass
@@ -44,4 +50,4 @@ class Photo:
 class UploadPhoto:
     server: int
     photo: str
-    hash_photo: str
+    hash: str

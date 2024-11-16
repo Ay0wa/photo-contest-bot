@@ -1,0 +1,132 @@
+from marshmallow import (
+    EXCLUDE,
+    Schema,
+    ValidationError,
+    fields,
+    post_load,
+    pre_load,
+    validates,
+)
+
+from .dataclasses import (
+    Photo,
+    Profile,
+    ProfileList,
+    Update,
+    UpdateMessage,
+    UpdateObject,
+    UploadPhoto,
+)
+
+
+class ProfileSchema(Schema):
+    id = fields.Int()
+    screen_name = fields.Str()
+    photo_100 = fields.Url()
+
+    @post_load
+    def make_profile(self, data, **kwargs):
+        return Profile(**data)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class ProfileListSchema(Schema):
+    profiles = fields.List(fields.Nested(ProfileSchema))
+
+    @post_load
+    def make_profile_list(self, data, **kwargs):
+        return ProfileList(**data)
+
+    @pre_load
+    def validate_response(self, data, **kwargs):
+        if "response" not in data:
+            raise ValidationError("Cant find response in data")
+
+        return data.get("response")
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class PhotoSchema(Schema):
+    album_id = fields.Int()
+    id = fields.Int()
+    owner_id = fields.Int()
+
+    @post_load
+    def make_photo(self, data, **kwargs):
+        return Photo(**data)
+
+    @pre_load
+    def validate_response(self, data, **kwargs):
+        if "response" not in data:
+            raise ValidationError("Cant find response in data")
+
+        return data.get("response")[0]
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class UploadPhotoSchema(Schema):
+    server = fields.Int()
+    photo = fields.Str()
+    hash = fields.Str()
+
+    @post_load
+    def make_upload_photo(self, data, **kwargs):
+        return UploadPhoto(**data)
+
+    @validates("photo")
+    def validate_photo_format(self, photo):
+        if photo == []:
+            raise ValidationError("Error image format")
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class UpdateMessageSchema(Schema):
+    from_id = fields.Int()
+    text = fields.Str()
+    id = fields.Int()
+    peer_id = fields.Int()
+    action = fields.Str(required=False, allow_none=True)
+
+    @post_load
+    def make_update_message(self, data, **kwargs):
+        return UpdateMessage(**data)
+
+    @pre_load
+    def validate_response(self, data, **kwargs):
+        action_data = data.get("action")
+        data["action"] = action_data.get("type") if action_data else None
+        return data
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class UpdateObjectSchema(Schema):
+    message = fields.Nested(UpdateMessageSchema)
+
+    @post_load
+    def make_update_object(self, data, **kwargs):
+        return UpdateObject(**data)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class UpdateSchema(Schema):
+    type = fields.Str()
+    object = fields.Nested(UpdateObjectSchema)
+
+    @post_load
+    def make_update(self, data, **kwargs):
+        return Update(**data)
+
+    class Meta:
+        unknown = EXCLUDE

@@ -10,13 +10,17 @@ from app.base.base_accessor import BaseAccessor
 from .dataclasses import (
     Message,
     Photo,
-    Profile,
-    Update,
-    UpdateMessage,
-    UpdateObject,
     UploadPhoto,
 )
+from .errors import VkApiError
 from .poller import Poller
+from .schemas import (
+    PhotoSchema,
+    ProfileListSchema,
+    ProfileSchema,
+    UpdateSchema,
+    UploadPhotoSchema,
+)
 
 if typing.TYPE_CHECKING:
     from app.web.app import Application
@@ -110,53 +114,29 @@ class VkApiAccessor(BaseAccessor):
             self.logger.info(data)
             self.ts = data["ts"]
             updates = [
-                Update(
-                    type=update["type"],
-                    object=UpdateObject(
-                        message=UpdateMessage(
-                            action=(
-                                update["object"]["message"]["action"]["type"]
-                                if update["object"]["message"].get("action")
-                                else None
-                            ),
-                            id=update["object"]["message"]["id"],
-                            from_id=update["object"]["message"]["from_id"],
-                            text=update["object"]["message"]["text"],
-                        )
-                    ),
+                UpdateSchema().load(update) for update in data.get(
+                    "updates",
+                    [],
                 )
-                for update in data.get("updates", [])
             ]
-            await self.app.store.bots_manager.handle_updates(updates)
+            if updates:
+                await self.app.store.bots_manager.handle_updates(updates)
 
-    async def get_chat_members(self) -> list[Profile]:
+    async def get_chat_members(self, peer_id: int) -> list[ProfileSchema]:
         async with self.session.get(
             self._build_query(
                 API_PATH,
                 "messages.getConversationMembers",
                 params={
-                    "peer_id": 2000000001,
+                    "peer_id": peer_id,
                     "access_token": self.app.config.bot.token,
                 },
             )
         ) as response:
             data = await response.json()
-
-            if "response" in data:
-                self.logger.info(data)
-            elif "error" in data:
-                self.logger.error(data)
-            elif "warning" in data:
-                self.logger.warning(data)
-
-        return [
-            Profile(
-                id=profile["id"],
-                screen_name=profile["screen_name"],
-                photo=profile["photo_100"],
-            )
-            for profile in data["response"]["profiles"]
-        ]
+            profiles = ProfileListSchema().load(data)
+            self.logger.info(data)
+        return profiles
 
     async def upload_photo(self, image_url) -> UploadPhoto:
         image_file = await self.upload_file(image_url)
@@ -167,19 +147,9 @@ class VkApiAccessor(BaseAccessor):
 
         async with self.session.post(self.upload_server, data=form) as response:
             data = await response.json()
-
-            if data["photo"] != []:
-                self.logger.info(data)
-            elif "error" in data:
-                self.logger.error(data)
-            elif "warning" in data:
-                self.logger.warning(data)
-
-            return UploadPhoto(
-                server=data["server"],
-                photo=data["photo"],
-                hash_photo=data["hash"],
-            )
+            upload_photo = UploadPhotoSchema().load(data)
+            self.logger.info(upload_photo)
+            return UploadPhotoSchema().load(data)
 
     async def upload_file(self, image_url):
         async with self.session.get(image_url) as response:
@@ -188,7 +158,7 @@ class VkApiAccessor(BaseAccessor):
     async def save_photo(self, upload_photo: UploadPhoto) -> Photo:
         photo = upload_photo.photo
         server = upload_photo.server
-        hash_photo = upload_photo.hash_photo
+        hash_photo = upload_photo.hash
 
         async with self.session.get(
             self._build_query(
@@ -203,27 +173,17 @@ class VkApiAccessor(BaseAccessor):
             )
         ) as response:
             data = await response.json()
-            if "response" in data:
-                self.logger.info(data)
-            elif "error" in data:
-                self.logger.error(data)
-            elif "warning" in data:
-                self.logger.warning(data)
+            self.logger.info(photo)
+        return PhotoSchema().load(data)
 
-        return Photo(
-            id=data["response"][0]["id"],
-            owner_id=data["response"][0]["owner_id"],
-            album_id=data["response"][0]["album_id"],
-        )
-
-    async def send_message(self, message: Message) -> None:
+    async def send_message(self, message: Message, peer_id: int) -> None:
         async with self.session.get(
             self._build_query(
                 API_PATH,
                 "messages.send",
                 params={
                     "random_id": random.randint(1, 2**32),
-                    "peer_id": 2000000001,
+                    "peer_id": peer_id,
                     "message": message.text,
                     "access_token": self.app.config.bot.token,
                 },
@@ -234,10 +194,12 @@ class VkApiAccessor(BaseAccessor):
                 self.logger.info(data)
             elif "error" in data:
                 self.logger.error(data)
+                raise VkApiError(data)
             elif "warning" in data:
                 self.logger.warning(data)
+                raise VkApiError(data)
 
-    async def send_avatar(self, photo: Photo) -> None:
+    async def send_avatar(self, photo: Photo, peer_id: int) -> None:
         owner_id = photo.owner_id
         photo_id = photo.id
 
@@ -248,7 +210,7 @@ class VkApiAccessor(BaseAccessor):
                 params={
                     "access_token": self.app.config.bot.token,
                     "attachment": f"photo{owner_id}_{photo_id}",
-                    "peer_id": 2000000001,
+                    "peer_id": peer_id,
                     "message": "йоу",
                     "random_id": random.randint(1, 2**32),
                 },
@@ -259,5 +221,7 @@ class VkApiAccessor(BaseAccessor):
                 self.logger.info(data)
             elif "error" in data:
                 self.logger.error(data)
+                raise VkApiError(data)
             elif "warning" in data:
                 self.logger.warning(data)
+                raise VkApiError(data)

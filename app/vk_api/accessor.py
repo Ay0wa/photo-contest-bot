@@ -114,7 +114,8 @@ class VkApiAccessor(BaseAccessor):
             self.logger.info(data)
             self.ts = data["ts"]
             updates = [
-                UpdateSchema().load(update) for update in data.get(
+                UpdateSchema().load(update)
+                for update in data.get(
                     "updates",
                     [],
                 )

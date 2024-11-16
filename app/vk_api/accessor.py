@@ -2,18 +2,25 @@ import random
 import typing
 from urllib.parse import urlencode, urljoin
 
-from aiohttp import TCPConnector
+from aiohttp import FormData, TCPConnector
 from aiohttp.client import ClientSession
 
 from app.base.base_accessor import BaseAccessor
 
 from .dataclasses import (
     Message,
-    Update,
-    UpdateMessage,
-    UpdateObject,
+    Photo,
+    UploadPhoto,
 )
+from .errors import VkApiError
 from .poller import Poller
+from .schemas import (
+    PhotoSchema,
+    ProfileListSchema,
+    ProfileSchema,
+    UpdateSchema,
+    UploadPhotoSchema,
+)
 
 if typing.TYPE_CHECKING:
     from app.web.app import Application
@@ -31,12 +38,15 @@ class VkApiAccessor(BaseAccessor):
         self.server: str | None = None
         self.poller: Poller | None = None
         self.ts: int | None = None
+        self.album_id: int | None = None
+        self.upload_server: str | None = None
 
     async def connect(self, app: "Application") -> None:
         self.session = ClientSession(connector=TCPConnector(verify_ssl=False))
 
         try:
             await self._get_long_poll_service()
+            await self._get_messages_upload_service()
         except Exception as e:
             self.logger.error("Exception", exc_info=e)
 
@@ -72,6 +82,21 @@ class VkApiAccessor(BaseAccessor):
             self.server = data["server"]
             self.ts = data["ts"]
 
+    async def _get_messages_upload_service(self) -> None:
+        async with self.session.get(
+            self._build_query(
+                host=API_PATH,
+                method="photos.getMessagesUploadServer",
+                params={
+                    "group_id": self.app.config.bot.group_id,
+                    "access_token": self.app.config.bot.token,
+                },
+            )
+        ) as response:
+            data = (await response.json())["response"]
+            self.album_id = data["album_id"]
+            self.upload_server = data["upload_url"]
+
     async def poll(self):
         async with self.session.get(
             self._build_query(
@@ -88,31 +113,78 @@ class VkApiAccessor(BaseAccessor):
             data = await response.json()
             self.logger.info(data)
             self.ts = data["ts"]
-
             updates = [
-                Update(
-                    type=update["type"],
-                    object=UpdateObject(
-                        message=UpdateMessage(
-                            id=update["object"]["message"]["id"],
-                            from_id=update["object"]["message"]["from_id"],
-                            text=update["object"]["message"]["text"],
-                        )
-                    ),
+                UpdateSchema().load(update)
+                for update in data.get(
+                    "updates",
+                    [],
                 )
-                for update in data.get("updates", [])
             ]
-            await self.app.store.bots_manager.handle_updates(updates)
+            if updates:
+                await self.app.store.bots_manager.handle_updates(updates)
 
-    async def send_message(self, message: Message) -> None:
+    async def get_chat_members(self, peer_id: int) -> list[ProfileSchema]:
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "messages.getConversationMembers",
+                params={
+                    "peer_id": peer_id,
+                    "access_token": self.app.config.bot.token,
+                },
+            )
+        ) as response:
+            data = await response.json()
+            profiles = ProfileListSchema().load(data)
+            self.logger.info(data)
+        return profiles
+
+    async def upload_photo(self, image_url) -> UploadPhoto:
+        image_file = await self.upload_file(image_url)
+        form = FormData()
+        form.add_field(
+            "photo", image_file, filename="photo.jpg", content_type="image/jpeg"
+        )
+
+        async with self.session.post(self.upload_server, data=form) as response:
+            data = await response.json()
+            upload_photo = UploadPhotoSchema().load(data)
+            self.logger.info(upload_photo)
+            return UploadPhotoSchema().load(data)
+
+    async def upload_file(self, image_url):
+        async with self.session.get(image_url) as response:
+            return await response.read()
+
+    async def save_photo(self, upload_photo: UploadPhoto) -> Photo:
+        photo = upload_photo.photo
+        server = upload_photo.server
+        hash_photo = upload_photo.hash
+
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "photos.saveMessagesPhoto",
+                params={
+                    "access_token": self.app.config.bot.token,
+                    "photo": photo,
+                    "server": server,
+                    "hash": hash_photo,
+                },
+            )
+        ) as response:
+            data = await response.json()
+            self.logger.info(photo)
+        return PhotoSchema().load(data)
+
+    async def send_message(self, message: Message, peer_id: int) -> None:
         async with self.session.get(
             self._build_query(
                 API_PATH,
                 "messages.send",
                 params={
-                    "user_id": message.user_id,
                     "random_id": random.randint(1, 2**32),
-                    "peer_id": f"-{self.app.config.bot.group_id}",
+                    "peer_id": peer_id,
                     "message": message.text,
                     "access_token": self.app.config.bot.token,
                 },
@@ -123,5 +195,34 @@ class VkApiAccessor(BaseAccessor):
                 self.logger.info(data)
             elif "error" in data:
                 self.logger.error(data)
+                raise VkApiError(data)
             elif "warning" in data:
                 self.logger.warning(data)
+                raise VkApiError(data)
+
+    async def send_avatar(self, photo: Photo, peer_id: int) -> None:
+        owner_id = photo.owner_id
+        photo_id = photo.id
+
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "messages.send",
+                params={
+                    "access_token": self.app.config.bot.token,
+                    "attachment": f"photo{owner_id}_{photo_id}",
+                    "peer_id": peer_id,
+                    "message": "йоу",
+                    "random_id": random.randint(1, 2**32),
+                },
+            )
+        ) as response:
+            data = await response.json()
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+                raise VkApiError(data)
+            elif "warning" in data:
+                self.logger.warning(data)
+                raise VkApiError(data)

@@ -12,6 +12,8 @@ class UpdateMessage:
     from_id: int
     text: str
     id: int
+    peer_id: int
+    action: str | None = None
 
 
 @dataclass
@@ -23,3 +25,29 @@ class UpdateObject:
 class Update:
     type: str
     object: UpdateObject
+
+
+@dataclass
+class Profile:
+    id: int
+    screen_name: str
+    photo_100: str
+
+
+@dataclass
+class ProfileList:
+    profiles: list[Profile]
+
+
+@dataclass
+class Photo:
+    album_id: int
+    id: int
+    owner_id: int
+
+
+@dataclass
+class UploadPhoto:
+    server: int
+    photo: str
+    hash: str

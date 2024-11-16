@@ -18,7 +18,7 @@ class PlayerModel(BaseModel):
     username: Mapped[str]
     avatar_url: Mapped[str]
     
-    status: Mapped[str]
+    status: Mapped[str | None]
     created_at: Mapped[created_at]
     
     game_id: Mapped[int] = mapped_column(ForeignKey("games.id", ondelete="CASCADE"))

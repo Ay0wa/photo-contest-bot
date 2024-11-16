@@ -12,8 +12,8 @@ class GameModel(BaseModel):
     __tablename__ = "games"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    current_round: Mapped[int]
-    status: Mapped[str]
+    current_round: Mapped[int | None]
+    status: Mapped[str | None]
     created_at: Mapped[created_at]
     finished_at: Mapped[datetime.datetime | None]
     game_time: Mapped[datetime.datetime | None]

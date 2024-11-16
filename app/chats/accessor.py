@@ -1,9 +1,18 @@
-import typing
+from sqlalchemy.exc import IntegrityError
+from app.base.base_accessor import BaseAccessor
 
-if typing.TYPE_CHECKING:
-    from app.web.app import Application
+from .models import ChatModel
 
+from sqlalchemy import select
 
-class ChatAccesor():
-    def __init__(self, app: "Application"):
-        self.app = app
+class ChatAccesor(BaseAccessor):
+    async def create_chat(self, chat_id: str, bot_state: str) -> ChatModel:
+        async with self.app.database.session() as session:
+            chat = ChatModel(chat_id=chat_id)
+            session.add(chat)
+            try:
+                await session.commit()
+                return chat
+            except IntegrityError:
+                await session.rollback()
+    

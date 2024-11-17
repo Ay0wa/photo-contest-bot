@@ -36,6 +36,7 @@ from app.database.base import BaseModel
 from app.games.models import GameModel
 from app.chats.models import ChatModel
 from app.players.models import PlayerModel
+
 target_metadata = BaseModel.metadata
 
 # other values from the config, defined by the needs of env.py,

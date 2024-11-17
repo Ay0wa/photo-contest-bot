@@ -9,11 +9,11 @@ from app.database.database import Database
 class Store:
     def __init__(self, app: "Application", *args, **kwargs):
         from app.bot.manager import BotManager
-        from app.vk_api.accessor import VkApiAccessor
         from app.chats.accessor import ChatAccesor
-        from app.players.accessor import PlayerAccesor
         from app.games.accessor import GameAccesor
-        
+        from app.players.accessor import PlayerAccesor
+        from app.vk_api.accessor import VkApiAccessor
+
         self.app = app
         self.vk_api = VkApiAccessor(app)
         self.bots_manager = BotManager(app)

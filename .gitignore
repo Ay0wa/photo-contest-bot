@@ -125,7 +125,7 @@ celerybeat.pid
 
 # Environments
 .env
-.env.test
+.test.env
 .venv
 env/
 venv/
@@ -177,5 +177,3 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 .idea
-
-test/

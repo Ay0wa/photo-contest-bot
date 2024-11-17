@@ -3,7 +3,6 @@ from aiohttp.web import (
 )
 
 from app.database.database import Database
-
 from app.store.store import Store, setup_store
 
 from .config import Config, setup_config

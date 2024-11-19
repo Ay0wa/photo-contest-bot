@@ -9,6 +9,8 @@ from marshmallow import (
 )
 
 from .dataclasses import (
+    Action,
+    Payload,
     Photo,
     Profile,
     ProfileList,
@@ -88,29 +90,50 @@ class UploadPhotoSchema(Schema):
         unknown = EXCLUDE
 
 
+class PayloadSchema(Schema):
+    button = fields.Str()
+
+    @post_load
+    def make_payload(self, data, **kwargs):
+        return Payload(**data)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class ActionSchema(Schema):
+    type = fields.Str()
+    member_id = fields.Int(required=False, allow_none=True)
+
+    @post_load
+    def make_action(self, data, **kwargs):
+        return Action(**data)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
 class UpdateMessageSchema(Schema):
     from_id = fields.Int()
     text = fields.Str()
     id = fields.Int()
     peer_id = fields.Int()
-    action = fields.Str(required=False, allow_none=True)
+    action = fields.Nested(ActionSchema, required=False)
 
     @post_load
     def make_update_message(self, data, **kwargs):
         return UpdateMessage(**data)
-
-    @pre_load
-    def validate_response(self, data, **kwargs):
-        action_data = data.get("action")
-        data["action"] = action_data.get("type") if action_data else None
-        return data
 
     class Meta:
         unknown = EXCLUDE
 
 
 class UpdateObjectSchema(Schema):
-    message = fields.Nested(UpdateMessageSchema)
+    message = fields.Nested(UpdateMessageSchema, required=False)
+
+    user_id = fields.Int(required=False)
+    peer_id = fields.Int(required=False)
+    payload = fields.Nested(PayloadSchema, required=False)
 
     @post_load
     def make_update_object(self, data, **kwargs):

@@ -21,6 +21,7 @@ class PlayerModel(BaseModel):
 
     username: Mapped[str]
     avatar_url: Mapped[str]
+    round: Mapped[int] = mapped_column(server_default="1")
 
     status: Mapped[Optional[str]]
     created_at: Mapped[created_at]

@@ -1,3 +1,4 @@
+import json
 import random
 import typing
 from urllib.parse import urlencode, urljoin
@@ -10,6 +11,7 @@ from app.base.base_accessor import BaseAccessor
 from .dataclasses import (
     Message,
     Photo,
+    Poll,
     UploadPhoto,
 )
 from .errors import VkApiError
@@ -120,6 +122,7 @@ class VkApiAccessor(BaseAccessor):
                     [],
                 )
             ]
+
             if updates:
                 await self.app.store.bots_manager.handle_updates(updates)
 
@@ -200,7 +203,7 @@ class VkApiAccessor(BaseAccessor):
                 self.logger.warning(data)
                 raise VkApiError(data)
 
-    async def send_avatar(self, photo: Photo, peer_id: int) -> None:
+    async def send_photo(self, photo: Photo, peer_id: int) -> None:
         owner_id = photo.owner_id
         photo_id = photo.id
 
@@ -212,7 +215,150 @@ class VkApiAccessor(BaseAccessor):
                     "access_token": self.app.config.bot.token,
                     "attachment": f"photo{owner_id}_{photo_id}",
                     "peer_id": peer_id,
-                    "message": "йоу",
+                    "message": "",
+                    "random_id": random.randint(1, 2**32),
+                },
+            )
+        ) as response:
+            data = await response.json()
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+                raise VkApiError(data)
+            elif "warning" in data:
+                self.logger.warning(data)
+                raise VkApiError(data)
+
+    async def send_photos(self, list_photos: list[Photo], peer_id: int):
+        owner1_id = list_photos[0].owner_id
+        photo1_id = list_photos[0].id
+
+        owner2_id = list_photos[1].owner_id
+        photo2_id = list_photos[1].id
+
+        photos = f"photo{owner1_id}_{photo1_id},photo{owner2_id}_{photo2_id}"
+
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "messages.send",
+                params={
+                    "access_token": self.app.config.bot.token,
+                    "attachment": photos,
+                    "peer_id": peer_id,
+                    "message": "",
+                    "random_id": random.randint(1, 2**32),
+                },
+            )
+        ) as response:
+            data = await response.json()
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+                raise VkApiError(data)
+            elif "warning" in data:
+                self.logger.warning(data)
+                raise VkApiError(data)
+
+    async def create_poll(
+        self,
+        peer_id: int,
+        question: str,
+        answers: list[str],
+        is_anonymous: bool = False,
+    ) -> dict:
+        answers = ["1", "2"]
+        async with self.session.get(
+            self._build_query(
+                self.API_PATH,
+                "polls.create",
+                params={
+                    "question": question,
+                    "add_answers": str(answers).replace("'", '"'),
+                    "is_anonymous": int(is_anonymous),
+                    "owner_id": peer_id,
+                    "access_token": self.app.config.bot.token,
+                    "v": "5.131",
+                },
+            )
+        ) as response:
+            data = await response.json()
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+                raise VkApiError(data)
+            elif "warning" in data:
+                self.logger.warning(data)
+                raise VkApiError(data)
+            return data["response"]
+
+    async def send_poll(self, poll: Poll, peer_id: int) -> None:
+        owner_id = poll.owner_id
+        poll_id = poll.id
+
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "messages.send",
+                params={
+                    "access_token": self.app.config.bot.token,
+                    "attachment": f"poll{owner_id}_{poll_id}",
+                    "peer_id": peer_id,
+                    "message": "",
+                    "random_id": random.randint(1, 2**32),
+                },
+            )
+        ) as response:
+            data = await response.json()
+            if "response" in data:
+                self.logger.info(data)
+            elif "error" in data:
+                self.logger.error(data)
+                raise VkApiError(data)
+            elif "warning" in data:
+                self.logger.warning(data)
+                raise VkApiError(data)
+
+    async def send_keyboard(self, peer_id: int, message: str):
+        keyboard = {
+            "one_time": False,
+            "buttons": [
+                [
+                    {
+                        "action": {
+                            "type": "callback",
+                            "payload": '{"button": "start_game"}',
+                            "label": "Начать игру",
+                        },
+                        "color": "negative",
+                    }
+                ],
+                [
+                    {
+                        "action": {
+                            "type": "callback",
+                            "payload": '{"button": "get_last_game"}',
+                            "label": "Показать последнюю игру",
+                        },
+                        "color": "positive",
+                    }
+                ],
+            ],
+        }
+
+        json_keyboard = json.dumps(keyboard, ensure_ascii=False)
+        async with self.session.get(
+            self._build_query(
+                API_PATH,
+                "messages.send",
+                params={
+                    "access_token": self.app.config.bot.token,
+                    "peer_id": peer_id,
+                    "message": message,
+                    "keyboard": json_keyboard,
                     "random_id": random.randint(1, 2**32),
                 },
             )

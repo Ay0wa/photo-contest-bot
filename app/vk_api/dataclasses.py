@@ -13,6 +13,13 @@ class Payload:
 
 
 @dataclass
+class Event:
+    peer_id: int
+    from_id: int
+    payload: Payload
+
+
+@dataclass
 class Action:
     type: str
     payload: str | None = None
@@ -70,7 +77,15 @@ class UploadPhoto:
     hash: str
 
 
-@dataclass
-class Poll:
-    id: int
-    owner_id: int
+# @dataclass
+# class Answer:
+#     id: int
+#     text: str
+#     votes: int
+#     rate: float
+
+# @dataclass
+# class Poll:
+#     id: int
+#     owner_id: int
+#     answers: list[Answer]

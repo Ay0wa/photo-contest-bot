@@ -1,5 +1,6 @@
 import datetime
 import typing
+from enum import StrEnum, auto
 from typing import Optional
 
 from sqlalchemy import ForeignKey
@@ -9,7 +10,13 @@ from app.database.base import BaseModel, created_at
 
 if typing.TYPE_CHECKING:
     from app.chats.models import ChatModel
-    from app.games.models import PlayerModel
+    from app.players.models import PlayerModel
+
+
+class GameStatus(StrEnum):
+    in_progress = auto()
+    finished = auto()
+    canceled = auto()
 
 
 class GameModel(BaseModel):
@@ -18,7 +25,11 @@ class GameModel(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     current_round: Mapped[Optional[int]]
-    status: Mapped[Optional[str]]
+    status: Mapped[GameStatus] = mapped_column(
+        default=GameStatus.in_progress,
+        server_default=GameStatus.in_progress,
+    )
+
     created_at: Mapped[created_at]
     finished_at: Mapped[Optional[datetime.datetime]]
     game_time: Mapped[Optional[datetime.datetime]]

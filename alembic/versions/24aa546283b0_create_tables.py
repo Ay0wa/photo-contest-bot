@@ -1,19 +1,19 @@
 """create tables
 
-Revision ID: 78f19499454a
+Revision ID: 24aa546283b0
 Revises: 
-Create Date: 2024-11-19 02:17:36.163683
+Create Date: 2024-11-21 19:46:18.556181
 
 """
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "78f19499454a"
+revision: str = "24aa546283b0"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,7 +24,20 @@ def upgrade() -> None:
     op.create_table(
         "chats",
         sa.Column("chat_id", sa.Integer(), nullable=False),
-        sa.Column("bot_state", sa.String(), server_default="init", nullable=False),
+        sa.Column(
+            "bot_state",
+            sa.Enum(
+                "init",
+                "idle",
+                "start_new_game",
+                "round_processing",
+                "game_processing",
+                "game_finished",
+                name="chatstate",
+            ),
+            server_default="init",
+            nullable=False,
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),
@@ -37,7 +50,12 @@ def upgrade() -> None:
         "games",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("current_round", sa.Integer(), nullable=True),
-        sa.Column("status", sa.String(), nullable=True),
+        sa.Column(
+            "status",
+            sa.Enum("in_progress", "finished", "canceled", name="gamestatus"),
+            server_default="in_progress",
+            nullable=False,
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),
@@ -47,15 +65,30 @@ def upgrade() -> None:
         sa.Column("finished_at", sa.DateTime(), nullable=True),
         sa.Column("game_time", sa.DateTime(), nullable=True),
         sa.Column("chat_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["chat_id"], ["chats.chat_id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["chat_id"], ["chats.chat_id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
         "players",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("username", sa.String(), nullable=False),
         sa.Column("avatar_url", sa.String(), nullable=False),
-        sa.Column("status", sa.String(), nullable=True),
+        sa.Column("round", sa.Integer(), server_default="1", nullable=False),
+        sa.Column("votes", sa.Integer(), server_default="0", nullable=False),
+        sa.Column(
+            "is_voted", sa.Boolean(), server_default="FALSE", nullable=False
+        ),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "winner", "loser", "in_game", "voting", name="playerstatus"
+            ),
+            server_default="in_game",
+            nullable=False,
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),

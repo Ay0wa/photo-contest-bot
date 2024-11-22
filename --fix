@@ -1,6 +1,0 @@
-app\games\models.py:20:27: UP007 Use `X | Y` for type annotations
-app\games\models.py:21:20: UP007 Use `X | Y` for type annotations
-app\games\models.py:23:25: UP007 Use `X | Y` for type annotations
-app\games\models.py:24:23: UP007 Use `X | Y` for type annotations
-app\players\models.py:26:20: UP007 Use `X | Y` for type annotations
-Found 5 errors.

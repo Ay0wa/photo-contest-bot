@@ -28,11 +28,11 @@ class ChatAccesor(BaseAccessor):
                 raise
             return chat
 
-    async def update_bot_state(self, chat_id: int, bot_state: str) -> ChatModel:
+    async def update_bot_state(self, chat_id: int, new_state: str) -> ChatModel:
         async with self.app.database.session() as session:
             query = (
                 update(ChatModel)
-                .values(bot_state=bot_state)
+                .values(bot_state=new_state)
                 .where(ChatModel.chat_id == chat_id)
                 .returning(ChatModel)
             )
@@ -58,5 +58,5 @@ class ChatAccesor(BaseAccessor):
                 raise
 
             if chat:
-                return chat
+                return chat.scalar_one()
             return None

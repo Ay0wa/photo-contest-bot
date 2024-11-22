@@ -153,3 +153,27 @@ class UpdateSchema(Schema):
 
     class Meta:
         unknown = EXCLUDE
+
+
+# class AnswerSchema:
+#     id = fields.Int()
+#     text = fields.Str()
+#     votes = fields.Int()
+#     rate = fields.Number()
+
+#     @post_load
+#     def make_poll(self, data, **kwargs):
+#         return Answer(**data)
+
+
+# class PollSchema(Schema):
+#     id = fields.Int()
+#     owner_id = fields.Int()
+#     answers = fields.List(fields.Nested(AnswerSchema))
+
+#     @post_load
+#     def make_poll(self, data, **kwargs):
+#         return Poll(**data)
+
+#     class Meta:
+#         unknown = EXCLUDE

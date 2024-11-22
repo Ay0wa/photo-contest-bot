@@ -130,7 +130,7 @@ class UpdateMessageSchema(Schema):
 
 class UpdateObjectSchema(Schema):
     message = fields.Nested(UpdateMessageSchema, required=False)
-
+    event_id = fields.Str(required=False)
     user_id = fields.Int(required=False)
     peer_id = fields.Int(required=False)
     payload = fields.Nested(PayloadSchema, required=False)

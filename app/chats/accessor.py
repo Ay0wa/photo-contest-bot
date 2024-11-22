@@ -7,23 +7,26 @@ from .models import ChatModel
 
 
 class ChatAccesor(BaseAccessor):
-    async def create_chat(
+    async def get_or_create_chat(
         self, chat_id: int, bot_state: str | None = None
     ) -> ChatModel:
         async with self.app.database.session() as session:
-            existing_chat = await session.execute(
-                select(ChatModel).filter(ChatModel.chat_id == chat_id)
-            )
-            existing_chat = existing_chat.scalars().first()
-
-            if existing_chat:
-                return existing_chat
-
-            chat = ChatModel(chat_id=chat_id, bot_state=bot_state)
             try:
+                existing_chat = await session.execute(
+                    select(ChatModel).filter(ChatModel.chat_id == chat_id)
+                )
+                existing_chat = existing_chat.scalars().first()
+
+                if existing_chat:
+                    return existing_chat
+
+                chat = ChatModel(chat_id=chat_id, bot_state=bot_state)
                 session.add(chat)
                 await session.commit()
             except IntegrityError:
+                self.logger.error(
+                    "Ошибка при создании или получении чата",
+                )
                 await session.rollback()
                 raise
             return chat

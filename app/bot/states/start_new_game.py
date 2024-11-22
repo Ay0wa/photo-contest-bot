@@ -1,38 +1,36 @@
-import typing
-
+from app.bot.bot_messages import (
+    NEW_GAME_PERMISSION_MESSAGE,
+    NEW_GAME_WARNING_MESSAGE,
+)
 from app.bot.states.base.base import BaseState
-from app.bot.states.base.context import StateContext
 from app.chats.models import ChatState
 from app.games.models import GameModel
 from app.players.models import PlayerModel
-from app.vk_api.dataclasses import ProfileList
-
-if typing.TYPE_CHECKING:
-    from app.bot.states.base.context import StateContext
-    from app.web.app import Application
+from app.vk_api.dataclasses import Message, ProfileList
 
 
 class BotStartNewGameState(BaseState):
-
     state_name = ChatState.start_new_game
-
-    def __init__(self, context: "StateContext"):
-        self.context: "StateContext" | None = None
-        super().__init__(context=context)
-        self.app: "Application" = self.context.app
-        self.chat_id = self.context.chat_id
 
     async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
         self.game = await self.create_game()
         profiles = await self.get_profiles()
-        await self.create_players(
-            profiles=profiles,
-            game_id=self.game.id,
-        )
-        await self.context.change_current_state(
-            new_state=ChatState.round_processing,
-            game=self.game,
-        )
+
+        if len(profiles) > 2:
+            await self.create_players(
+                profiles=profiles,
+                game_id=self.game.id,
+            )
+            await self.context.change_current_state(
+                new_state=ChatState.round_processing,
+                game=self.game,
+            )
+        else:
+            await self.send_count_players_warning()
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+                game=self.game,
+            )
 
     async def create_game(self) -> GameModel:
         return await self.app.store.games.create_game(
@@ -54,12 +52,31 @@ class BotStartNewGameState(BaseState):
         return players
 
     async def get_profiles(self):
-        members = await self.app.store.vk_api.get_chat_members(
-            peer_id=self.chat_id,
-        )
+        try:
+            members = await self.app.store.vk_api.get_chat_members(
+                peer_id=self.chat_id,
+            )
+        except UnboundLocalError:
+            await self.send_permission_warning()
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+                game=self.game,
+            )
+            return []
         return members.profiles
 
-    async def get_last_game(self):
-        return await self.app.store.games.get_last_game(
-            chat_id=self.chat_id,
+    async def send_count_players_warning(self):
+        await self.app.store.vk_api.send_message(
+            message=Message(
+                text=NEW_GAME_WARNING_MESSAGE,
+            ),
+            peer_id=self.chat_id,
+        )
+
+    async def send_permission_warning(self):
+        await self.app.store.vk_api.send_message(
+            message=Message(
+                text=NEW_GAME_PERMISSION_MESSAGE,
+            ),
+            peer_id=self.chat_id,
         )

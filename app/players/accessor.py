@@ -20,13 +20,13 @@ class PlayerAccesor(BaseAccessor):
             try:
                 session.add(player)
                 await session.commit()
-            except IntegrityError as e:
+            except IntegrityError:
                 await session.rollback()
-                self.logger.error(f"IntegrityError при создании игрока: {e}")
+                self.logger.error("IntegrityError при создании игрока")
                 raise
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при создании игрока: {e}")
+                self.logger.error("Ошибка при создании игрока:")
                 raise
 
     async def get_players_by_game_id(self, game_id: int) -> list[PlayerModel]:
@@ -37,9 +37,9 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 return result.scalars().all()
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при получении игроков по game_id: {e}"
+                    "Ошибка при получении игроков по game_id:",
                 )
                 return []
 
@@ -55,9 +55,9 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 return result.scalars().first()
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при получении игроков по game_id и user_id: {e}"
+                    "Ошибка при получении игроков по game_id и user_id:",
                 )
                 return None
 
@@ -73,13 +73,13 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 return result.scalars().all()
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при получении игроков в текущем раунде: {e}"
+                    "Ошибка при получении игроков в текущем раунде:",
                 )
                 return []
 
-    async def get_player_with_max_votes(self, game_id: int) -> PlayerModel | None:
+    async def get_player_with_max_votes(self, game_id: int) -> PlayerModel:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -91,24 +91,23 @@ class PlayerAccesor(BaseAccessor):
                     .order_by(PlayerModel.votes.desc())
                 )
                 result = await session.execute(query)
-                player = result.scalars().first()
-                if not player:
-                    self.logger.info(
-                        f"Игроки с голосами в игре {game_id} не найдены."
-                    )
-                else:
-                    self.logger.info(
-                        f"""Игрок с максимальным количеством голосов в игре
-                        {game_id}: {player.username},
-                        голоса: {player.votes}"""
-                    )
-                return player
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"""Ошибка при получении игрока 
-                    с максимальным количеством голосов: {e}"""
+                    """Ошибка при выполнении запроса для получения игрока 
+                    с максимальным количеством голосов""",
                 )
                 return None
+
+            player = result.scalars().first()
+
+            if not player:
+                self.logger.info("Игроки с голосами в игре не найдены.")
+            else:
+                self.logger.info(
+                    "Игрок с максимальным количеством голосов в игре найден."
+                )
+
+            return player
 
     async def get_player_with_min_votes(self, game_id: int):
         async with self.app.database.session() as session:
@@ -122,24 +121,27 @@ class PlayerAccesor(BaseAccessor):
                     .order_by(PlayerModel.votes.asc())
                 )
                 result = await session.execute(query)
-                player = result.scalars().first()
-                if not player:
-                    self.logger.info(
-                        f"Игроки с голосами в игре {game_id} не найдены."
-                    )
-                else:
-                    self.logger.info(
-                        f"""Игрок с минимальным количеством голосов в игре 
-                        {game_id}: {player.username}, голоса: {player.votes}"""
-                    )
-                return player
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при получении игрока с минимальным количеством голосов: {e}"
+                    """Ошибка при выполнении запроса для получения игрока 
+                    с минимальным количеством голосов""",
                 )
                 return None
 
-    async def get_player_by_status(self, game_id: int, status: PlayerStatus):
+            player = result.scalars().first()
+
+            if not player:
+                self.logger.info("Игроки с голосами в игре не найдены.")
+            else:
+                self.logger.info(
+                    "Игрок с минимальным количеством голосов в игре найден."
+                )
+
+            return player
+
+    async def get_player_by_status(
+        self, game_id: int, status: PlayerStatus
+    ) -> PlayerModel:
         async with self.app.database.session() as session:
             try:
                 query = select(PlayerModel).where(
@@ -148,11 +150,10 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 return result.scalars().one_or_none()
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при получении игроков по статусу: {e}"
+                    "Ошибка при получении игроков по статусу",
                 )
-                return None
 
     async def update_round(self, player_id: int, new_round: int) -> PlayerModel:
         async with self.app.database.session() as session:
@@ -166,13 +167,13 @@ class PlayerAccesor(BaseAccessor):
                 result = await session.execute(query)
                 await session.commit()
                 return result.scalar_one()
-            except IntegrityError as e:
+            except IntegrityError:
                 await session.rollback()
-                self.logger.error(f"IntegrityError при обновлении раунда: {e}")
+                self.logger.error("IntegrityError при обновлении раунда")
                 raise
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при обновлении раунда: {e}")
+                self.logger.error("Ошибка при обновлении раунда")
                 raise
 
     async def update_voted(self, game_id: int, player_id: int, new_voted: bool):
@@ -188,9 +189,9 @@ class PlayerAccesor(BaseAccessor):
                 result = await session.execute(query)
                 await session.commit()
                 return result.scalar_one()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при обновлении is_voted: {e}")
+                self.logger.error("Ошибка при обновлении is_voted")
                 raise
 
     async def update_votes_by_username(self, username: str, game_id: int):
@@ -206,10 +207,10 @@ class PlayerAccesor(BaseAccessor):
                 result = await session.execute(query)
                 await session.commit()
                 return result.scalar_one()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 self.logger.error(
-                    f"Ошибка при обновлении голосов по имени пользователя: {e}"
+                    "Ошибка при обновлении голосов по имени пользователя",
                 )
                 raise
 
@@ -231,9 +232,9 @@ class PlayerAccesor(BaseAccessor):
 
                 return result.scalars().all()
 
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при обновлении статуса: {e}")
+                self.logger.error("Ошибка при обновлении статуса")
                 raise
 
     async def update_player_status(
@@ -252,9 +253,9 @@ class PlayerAccesor(BaseAccessor):
 
                 await session.execute(query)
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при обновлении статуса: {e}")
+                self.logger.error("Ошибка при обновлении статуса")
                 raise
 
     async def check_all_votes_true_for_game(self, game_id: int):
@@ -270,7 +271,7 @@ class PlayerAccesor(BaseAccessor):
                             PlayerModel.status == PlayerStatus.loser,
                         )
                     )
-                    .where(PlayerModel.is_voted == True)
+                    .where(PlayerModel.is_voted)
                 )
 
                 result = await session.execute(query)
@@ -293,9 +294,9 @@ class PlayerAccesor(BaseAccessor):
                 total_players = total_players_result.scalars().all()
 
                 return len(players) == len(total_players)
-            except Exception as e:
+            except Exception:
                 self.logger.error(
-                    f"Ошибка при проверке проголосовавших участников: {e}"
+                    "Ошибка при проверке проголосовавших участников",
                 )
                 raise
 
@@ -309,8 +310,6 @@ class PlayerAccesor(BaseAccessor):
                 )
                 await session.execute(query)
                 await session.commit()
-                return True
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                self.logger.error(f"Ошибка при сброса голосов: {e}")
-                return False
+                self.logger.error("Ошибка при сброса голосов")

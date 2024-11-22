@@ -28,7 +28,11 @@ class GameAccesor(BaseAccessor):
         chat_id: int,
     ) -> GameModel:
         async with self.app.database.session() as session:
-            query = select(GameModel).where(GameModel.chat_id == chat_id)
+            query = (
+                select(GameModel)
+                .where(GameModel.chat_id == chat_id)
+                .where(GameModel.status == GameStatus.finished)
+            )
             game = await session.execute(query)
             if not game:
                 return None

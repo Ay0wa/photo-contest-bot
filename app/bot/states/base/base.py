@@ -1,18 +1,20 @@
 import typing
-from abc import ABC, abstractmethod
 
 from app.chats.models import ChatState
 from app.vk_api.dataclasses import Event, Message
+from app.web.app import Application
 
 if typing.TYPE_CHECKING:
     from .context import StateContext
 
 
-class BaseState(ABC):
+class BaseState:
     state_name: ChatState | None = None
 
     def __init__(self, context: "StateContext") -> None:
-        self.context = context
+        self.context: "StateContext" = context
+        self.app: "Application" = self.context.app
+        self.chat_id = self.context.chat_id
 
     async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
         pass

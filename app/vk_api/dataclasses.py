@@ -14,6 +14,7 @@ class Payload:
 
 @dataclass
 class Event:
+    event_id: int
     peer_id: int
     from_id: int
     payload: Payload
@@ -40,6 +41,7 @@ class UpdateMessage:
 class UpdateObject:
     message: UpdateMessage | None = None
 
+    event_id: str | None = None
     user_id: int | None = None
     peer_id: int | None = None
     payload: str | None = None

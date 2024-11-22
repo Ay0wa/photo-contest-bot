@@ -24,15 +24,15 @@ class GameModel(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    current_round: Mapped[Optional[int]]
+    current_round: Mapped[Optional[int]]  # noqa: UP007
     status: Mapped[GameStatus] = mapped_column(
         default=GameStatus.in_progress,
         server_default=GameStatus.in_progress,
     )
 
     created_at: Mapped[created_at]
-    finished_at: Mapped[Optional[datetime.datetime]]
-    game_time: Mapped[Optional[datetime.datetime]]
+    finished_at: Mapped[Optional[datetime.datetime]]  # noqa: UP007
+    game_time: Mapped[Optional[datetime.datetime]]  # noqa: UP007
 
     chat_id: Mapped[int] = mapped_column(
         ForeignKey("chats.chat_id", ondelete="CASCADE")

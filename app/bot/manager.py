@@ -1,7 +1,7 @@
 import typing
 from logging import getLogger
 
-from app.chats.models import ChatModel, ChatState
+from app.chats.models import ChatModel
 from app.vk_api.dataclasses import Event, Message, Payload, Update
 
 from .states.base.base import BaseState
@@ -31,6 +31,7 @@ class BotManager:
             else:
                 chat_id = update.object.peer_id
                 event_obj = Event(
+                    event_id=update.object.event_id,
                     from_id=update.object.user_id,
                     peer_id=update.object.peer_id,
                     payload=Payload(
@@ -42,12 +43,7 @@ class BotManager:
             app=self.app,
             chat_id=chat_id,
         )
-        await self.state_context.init_state()
-        self.current_state = await self.state_context._get_current_state(
-            chat_id=chat_id,
-        )
-        if self.current_state.state_name == ChatState.init:
-            await self.current_state.on_state_enter(from_state=ChatState.init)
+        self.current_state = await self.state_context.init_state()
         if event_obj:
             await self.current_state.handle_events(
                 event_obj=event_obj,

@@ -9,18 +9,19 @@ if typing.TYPE_CHECKING:
 
 
 class StateContext:
-
     def __init__(self, app: Application, chat_id: int) -> None:
-        self.app: Application = app
+        self.app: "Application" = app
         self.chat_id = chat_id
         self.state: None | "BaseState" = None
 
     async def init_state(self) -> None:
         self.state = await self._get_current_state(self.chat_id)
+        return self.state
 
     async def _get_current_state(self, chat_id: int) -> "BaseState":
-        from .states import states
-        chat = await self.app.store.chats.create_chat(
+        from .states import states  # noqa: PLC0415
+
+        chat = await self.app.store.chats.get_or_create_chat(
             chat_id=chat_id,
         )
         return states[chat.bot_state](

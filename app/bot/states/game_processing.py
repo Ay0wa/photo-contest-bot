@@ -1,36 +1,28 @@
-import typing
-
+from app.bot.bot_messages import (
+    GAME_PROCESSING_START_VOTING,
+    GAME_PROCESSING_TIE_MESSAGE,
+    GAME_PROCESSING_VOTE_WARNING_MESSAGE,
+    GAME_PROCESSING_WINNER_MESSAGE,
+)
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
 from app.games.models import GameModel, GameStatus
 from app.players.models import PlayerModel, PlayerStatus
 from app.vk_api.dataclasses import Event, Message
 
-if typing.TYPE_CHECKING:
-    from app.bot.states.base.context import StateContext
-    from app.web.app import Application
-
 
 class BotGameProcessingState(BaseState):
-
     state_name = ChatState.game_processing
-
-    def __init__(self, context: "StateContext"):
-        self.context: "StateContext" | None = None
-        super().__init__(context=context)
-        self.app: "Application" = self.context.app
-        self.chat_id = self.context.chat_id
 
     async def on_state_enter(
         self, from_state: ChatState, game: GameModel, **kwargs
     ) -> None:
-        self.game = game
-        self.players = await self.app.store.players.get_players_by_round(
+        players = await self.app.store.players.get_players_by_round(
             game_id=game.id,
             current_round=game.current_round,
             status=PlayerStatus.voting,
         )
-        if len(self.players) == 1:
+        if len(players) == 1:
             await self.app.store.players.update_player_status(
                 game_id=game.id,
                 player_id=self.players[0].id,
@@ -41,13 +33,13 @@ class BotGameProcessingState(BaseState):
                 game=game,
             )
 
-        self.players = await self.app.store.players.update_players_status(
+        players = await self.app.store.players.update_players_status(
             game_id=game.id,
-            player_ids=[self.players[0].user_id, self.players[1].user_id],
+            player_ids=[players[0].user_id, players[1].user_id],
         )
 
-        player1 = self.players[0]
-        player2 = self.players[1]
+        player1 = players[0]
+        player2 = players[1]
 
         await self.send_avatars(
             player1,
@@ -83,7 +75,7 @@ class BotGameProcessingState(BaseState):
                 game_id=game.id,
             )
         else:
-            await self.send_message(
+            await self.send_vote_warning(
                 username_voted=user.username,
             )
 
@@ -94,6 +86,9 @@ class BotGameProcessingState(BaseState):
                 new_state=ChatState.round_processing,
                 game=game,
             )
+        await self.app.store.vk_api.send_event_answer(
+            event_obj=event_obj,
+        )
 
     async def on_state_exit(self, to_state: ChatState, **kwargs) -> None:
         if to_state != ChatState.game_finished:
@@ -111,30 +106,11 @@ class BotGameProcessingState(BaseState):
                     game_id=game.id,
                 )
             )
-            await self.app.store.players.update_player_status(
-                game_id=game.id,
-                player_id=player_winner.id,
-                status=PlayerStatus.voting,
-            )
-            await self.app.store.players.update_player_status(
-                game_id=game.id,
-                player_id=player_loser.id,
-                status=PlayerStatus.loser,
-            )
-
             await self.send_result(
-                player_username=player_winner.username,
+                game=game,
+                winner=player_winner,
+                loser=player_loser,
             )
-
-    async def get_players_by_round(
-        self,
-        game_id: int,
-        current_round: int,
-    ) -> list[PlayerModel]:
-        return await self.app.store.players.get_players_by_round(
-            game_id=game_id,
-            current_round=current_round,
-        )
 
     async def send_avatars(self, player1, player2) -> None:
         upload_photo_player1 = await self.app.store.vk_api.upload_photo(
@@ -156,19 +132,53 @@ class BotGameProcessingState(BaseState):
             peer_id=self.chat_id,
         )
 
-    async def send_result(self, player_username: str):
-        await self.app.store.vk_api.send_message(
-            message=Message(
-                text=f"{player_username} ПОБЕДИЛ!",
-            ),
-            peer_id=self.chat_id,
-        )
+    async def send_result(
+        self,
+        game,
+        winner: PlayerModel,
+        loser: PlayerModel,
+    ):
+        if winner.votes != loser.votes:
+            await self.app.store.players.update_player_status(
+                game_id=game.id,
+                player_id=winner.id,
+                status=PlayerStatus.voting,
+            )
+            await self.app.store.players.update_player_status(
+                game_id=game.id,
+                player_id=loser.id,
+                status=PlayerStatus.loser,
+            )
+            await self.app.store.vk_api.send_message(
+                message=Message(
+                    text=GAME_PROCESSING_WINNER_MESSAGE.format(
+                        winner=winner.username,
+                        winner_votes=winner.votes,
+                        loser=loser.username,
+                        loser_votes=loser.votes,
+                    )
+                ),
+                peer_id=self.chat_id,
+            )
+        else:
+            await self.app.store.vk_api.send_message(
+                message=Message(
+                    text=GAME_PROCESSING_TIE_MESSAGE.format(
+                        username1=winner.username,
+                        votes1=winner.votes,
+                        username2=loser.username,
+                        votes2=loser.votes,
+                    )
+                ),
+                peer_id=self.chat_id,
+            )
 
-    async def send_message(self, username_voted: str):
+    async def send_vote_warning(self, username_voted: str):
         await self.app.store.vk_api.send_message(
             message=Message(
-                text=f"""{username_voted}, Вы участвуете в раунде,
-                либо вы уже проголосовали!""",
+                text=GAME_PROCESSING_VOTE_WARNING_MESSAGE.format(
+                    username=username_voted,
+                ),
             ),
             peer_id=self.chat_id,
         )
@@ -203,7 +213,10 @@ class BotGameProcessingState(BaseState):
 
         await self.app.store.vk_api.send_message(
             message=Message(
-                text="Начинаем голосование!",
+                GAME_PROCESSING_START_VOTING.format(
+                    username1=players[0],
+                    username2=players[1],
+                ),
             ),
             peer_id=self.chat_id,
             keyboard=keyboard,

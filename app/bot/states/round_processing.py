@@ -1,24 +1,12 @@
-import typing
-
+from app.bot.bot_messages import ROUND_START_MESSAGE
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
 from app.games.models import GameModel
 from app.vk_api.dataclasses import Event, Message
 
-if typing.TYPE_CHECKING:
-    from app.bot.states.base.context import StateContext
-    from app.web.app import Application
-
 
 class BotRoundProcessingState(BaseState):
-
     state_name = ChatState.round_processing
-
-    def __init__(self, context: "StateContext"):
-        self.context: "StateContext" | None = None
-        super().__init__(context=context)
-        self.app: "Application" = self.context.app
-        self.chat_id = self.context.chat_id
 
     async def on_state_enter(
         self, from_state: ChatState, game: GameModel, **kwargs
@@ -49,7 +37,9 @@ class BotRoundProcessingState(BaseState):
     async def send_message(self, game: GameModel) -> None:
         await self.app.store.vk_api.send_message(
             message=Message(
-                text=f"{game.current_round} РАУНД НАЧИНАЕТСЯ!!!",
+                text=ROUND_START_MESSAGE.format(
+                    current_round=game.current_round
+                ),
             ),
             peer_id=self.chat_id,
         )

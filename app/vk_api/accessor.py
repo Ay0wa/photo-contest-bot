@@ -8,7 +8,12 @@ from aiohttp.client import ClientSession
 
 from app.base.base_accessor import BaseAccessor
 
-from .dataclasses import Message, Photo, UploadPhoto
+from .dataclasses import (
+    Event,
+    Message,
+    Photo,
+    UploadPhoto,
+)
 from .errors import VkApiError
 from .poller import Poller
 from .schemas import (
@@ -44,8 +49,8 @@ class VkApiAccessor(BaseAccessor):
         try:
             await self._get_long_poll_service()
             await self._get_messages_upload_service()
-        except Exception as e:
-            self.logger.error("Exception", exc_info=e)
+        except Exception:
+            self.logger.error("Exception")
 
         self.poller = Poller(app.store)
         self.logger.info("start polling")
@@ -100,21 +105,15 @@ class VkApiAccessor(BaseAccessor):
             async with self.session.get(url) as response:
                 data = await response.json()
                 if "error" in data:
-                    self.logger.error(
-                        f"Ошибка VK API: {data['error']['error_msg']} "
-                        f"(код: {data['error']['error_code']})"
-                    )
+                    self.logger.error(data)
                     raise VkApiError(data)
                 if "warning" in data:
-                    self.logger.warning(
-                        f"""Предупреждение VK API:
-                        {data.get('warning', 'Нет деталей')}"""
-                    )
+                    self.logger.warning(data)
                 return data
         except VkApiError:
             raise
-        except Exception as e:
-            self.logger.error(f"Неизвестная ошибка при запросе к VK API: {e}")
+        except Exception:
+            self.logger.error("Неизвестная ошибка при запросе к VK API")
             raise
 
     async def poll(self):
@@ -154,13 +153,10 @@ class VkApiAccessor(BaseAccessor):
                 "messages.getConversationMembers", params
             )
             profiles = ProfileListSchema().load(data)
-            self.logger.info(f"Участники чата {peer_id} успешно получены.")
-            return profiles
-        except Exception as e:
-            self.logger.error(
-                f"Ошибка при получении участников чата {peer_id}: {e}"
-            )
-            return []
+            self.logger.info("Участники чата успешно получены.")
+        except Exception:
+            self.logger.error("Ошибка при получении участников чата")
+        return profiles
 
     async def upload_photo(self, image_url) -> UploadPhoto:
         image_file = await self.upload_file(image_url)
@@ -174,13 +170,13 @@ class VkApiAccessor(BaseAccessor):
             ) as response:
                 data = await response.json()
                 if "error" in data:
-                    self.logger.error(f"Ошибка загрузки фото: {data}")
+                    self.logger.error("Ошибка загрузки фото")
                     raise VkApiError(data)
                 photo = UploadPhotoSchema().load(data)
-                self.logger.info(f"Фотография успешно загружена.")
+                self.logger.info("Фотография успешно загружена.")
                 return photo
-        except Exception as e:
-            self.logger.error(f"Ошибка при загрузке фото: {e}")
+        except Exception:
+            self.logger.error("Ошибка при загрузке фото")
             raise
 
     async def upload_file(self, image_url):
@@ -200,25 +196,24 @@ class VkApiAccessor(BaseAccessor):
                 "photos.saveMessagesPhoto", params
             )
             photo = PhotoSchema().load(photo_data)
-            self.logger.info(f"Фотография успешно сохранена: {photo}")
-            return photo
-        except VkApiError as vk_error:
-            self.logger.error(
-                f"Ошибка VK API при сохранении фотографии: {vk_error}"
-            )
+            self.logger.info("Фотография успешно сохранена")
+        except VkApiError:
+            self.logger.error("Ошибка VK API при сохранении фотографии")
             raise
-        except Exception as e:
-            self.logger.error(
-                f"Неизвестная ошибка при сохранении фотографии: {e}"
-            )
+        except Exception:
+            self.logger.error("Неизвестная ошибка при сохранении фотографии")
             raise
+        return photo
 
     async def send_message(
         self,
         message: Message,
         peer_id: int,
-        keyboard={},
+        keyboard: dict | None = None,
     ) -> None:
+        if keyboard is None:
+            keyboard = {}
+
         json_keyboard = json.dumps(keyboard, ensure_ascii=False)
         params = {
             "random_id": random.randint(1, 2**32),
@@ -229,11 +224,9 @@ class VkApiAccessor(BaseAccessor):
         }
         try:
             await self._api_request("messages.send", params)
-            self.logger.info(f"Сообщение успешно отправлено в чат {peer_id}.")
-        except Exception as e:
-            self.logger.error(
-                f"Ошибка при отправке сообщения в чат {peer_id}: {e}"
-            )
+            self.logger.info("Сообщение успешно отправлено в чат")
+        except Exception:
+            self.logger.error("Ошибка при отправке сообщения в чат")
             raise
 
     async def send_photo(self, photo: Photo, peer_id: int) -> None:
@@ -246,13 +239,9 @@ class VkApiAccessor(BaseAccessor):
         }
         try:
             await self._api_request("messages.send", params)
-            self.logger.info(
-                f"Фотография {photo.id} успешно отправлена в чат {peer_id}."
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Ошибка при отправке фотографии в чат {peer_id}: {e}"
-            )
+            self.logger.info("Фотография успешно отправлена в чат")
+        except Exception:
+            self.logger.error("Ошибка при отправке фотографии в чат")
             raise
 
     async def send_photos(self, list_photos: list[Photo], peer_id: int):
@@ -275,20 +264,31 @@ class VkApiAccessor(BaseAccessor):
         }
 
         try:
-            response = await self._api_request("messages.send", params)
-            self.logger.info(
-                f"""Фотографии {photos} успешно отправлены в чат {peer_id}. 
-                Ответ: {response}"""
-            )
-        except VkApiError as vk_error:
-            self.logger.error(
-                f"""Ошибка VK API при отправке фотографий {photos}
-                в чат {peer_id}: {vk_error}"""
-            )
+            await self._api_request("messages.send", params)
+            self.logger.info("Фотографии успешно отправлены в чат.")
+        except VkApiError:
+            self.logger.error("Ошибка VK API при отправке фотографий")
             raise
-        except Exception as e:
-            self.logger.error(
-                f"""Неизвестная ошибка при отправке фотографий
-                {photos} в чат {peer_id}: {e}"""
-            )
+        except Exception:
+            self.logger.error("Неизвестная ошибка при отправке фотографий")
+            raise
+
+    async def send_event_answer(
+        self,
+        event_obj: Event,
+    ):
+        params = {
+            "access_token": self.app.config.bot.token,
+            "event_id": event_obj.event_id,
+            "user_id": event_obj.from_id,
+            "peer_id": event_obj.peer_id,
+        }
+
+        try:
+            await self._api_request("messages.sendMessageEventAnswer", params)
+            self.logger.info("Событие успешно обработано")
+        except VkApiError:
+            self.logger.error("Ошибка VK API при обработки события")
+        except Exception:
+            self.logger.error("Неизвестная ошибка при обработки события")
             raise

@@ -1,3 +1,6 @@
-from .store import Store
+from .store import Store, setup_store
 
-__all__ = ("Store",)
+__all__ = (
+    "Store",
+    "setup_store",
+)

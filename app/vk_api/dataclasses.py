@@ -3,8 +3,29 @@ from dataclasses import dataclass
 
 @dataclass
 class Message:
-    user_id: int
     text: str
+    user_id: int | None = None
+
+
+@dataclass
+class Payload:
+    button: str
+
+
+@dataclass
+class Event:
+    event_id: int
+    peer_id: int
+    from_id: int
+    payload: Payload
+
+
+@dataclass
+class Action:
+    type: str
+    payload: str | None = None
+    label: str | None = None
+    member_id: int | None = None
 
 
 @dataclass
@@ -13,12 +34,17 @@ class UpdateMessage:
     text: str
     id: int
     peer_id: int
-    action: str | None = None
+    action: Action | None = None
 
 
 @dataclass
 class UpdateObject:
-    message: UpdateMessage
+    message: UpdateMessage | None = None
+
+    event_id: str | None = None
+    user_id: int | None = None
+    peer_id: int | None = None
+    payload: str | None = None
 
 
 @dataclass
@@ -51,3 +77,17 @@ class UploadPhoto:
     server: int
     photo: str
     hash: str
+
+
+# @dataclass
+# class Answer:
+#     id: int
+#     text: str
+#     votes: int
+#     rate: float
+
+# @dataclass
+# class Poll:
+#     id: int
+#     owner_id: int
+#     answers: list[Answer]

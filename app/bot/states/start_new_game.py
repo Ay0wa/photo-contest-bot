@@ -4,7 +4,6 @@ from app.bot.bot_messages import (
 )
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
-from app.games.models import GameModel
 from app.players.models import PlayerModel
 from app.vk_api.dataclasses import Message, ProfileList
 

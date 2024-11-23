@@ -32,4 +32,3 @@ class Poller:
     async def poll(self) -> None:
         while self.is_running:
             await self.store.vk_api.poll()
-            

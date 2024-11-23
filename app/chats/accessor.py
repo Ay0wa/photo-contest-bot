@@ -63,3 +63,16 @@ class ChatAccesor(BaseAccessor):
             if chat:
                 return chat.scalar_one()
             return None
+
+    async def list_chats(self) -> list[ChatModel] | None:
+        async with self.app.database.session() as session:
+            query = select(ChatModel)
+            try:
+                chats = await session.execute(query)
+            except Exception:
+                await session.rollback()
+                raise
+
+            if chats:
+                return chats.scalars().all()
+            return None

@@ -15,7 +15,7 @@ class BotInitState(BaseState):
         await self._start()
 
     async def _start(self) -> None:
-        chat = await self.app.store.chats.get_or_create_chat(
+        await self.app.store.chats.get_or_create_chat(
             chat_id=self.chat_id,
         )
         await self.app.store.games.cancel_in_progress_game(chat_id=self.chat_id)

@@ -8,12 +8,7 @@ from aiohttp.client import ClientSession
 
 from app.base.base_accessor import BaseAccessor
 
-from .dataclasses import (
-    Event,
-    Message,
-    Photo,
-    UploadPhoto,
-)
+from .dataclasses import Event, Message, Photo, UploadPhoto
 from .errors import VkApiError
 from .poller import Poller
 from .schemas import (
@@ -130,14 +125,14 @@ class VkApiAccessor(BaseAccessor):
             )
         ) as response:
             data = await response.json()
-            
+
             try:
                 self.ts = data["ts"]
                 self.logger.info(data)
             except KeyError:
-                await self.store.vk_api._get_long_poll_service()
+                await self._get_long_poll_service()
                 await self.poll()
-                
+
             updates = [
                 UpdateSchema().load(update)
                 for update in data.get(

@@ -4,20 +4,18 @@ from app.bot.bot_messages import (
     GAME_PROCESSING_VOTE_WARNING_MESSAGE,
     GAME_PROCESSING_WINNER_MESSAGE,
 )
+from app.bot.enums import PayloadButton
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
-from app.games.models import GameModel, GameStatus
+from app.games.models import GameStatus
 from app.players.models import PlayerModel, PlayerStatus
 from app.vk_api.dataclasses import Event, Message
-from app.bot.enums import PayloadButton
 
 
 class BotGameProcessingState(BaseState):
     state_name = ChatState.game_processing
 
-    async def on_state_enter(
-        self, from_state: ChatState, **kwargs
-    ) -> None:
+    async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
         game = await self.app.store.games.get_game_by_status(
             chat_id=self.chat_id,
             status=GameStatus.in_progress,
@@ -63,7 +61,9 @@ class BotGameProcessingState(BaseState):
             await self.context.change_current_state(
                 new_state=ChatState.idle,
             )
-            await self.app.store.games.cancel_in_progress_game(chat_id=self.chat_id)
+            await self.app.store.games.cancel_in_progress_game(
+                chat_id=self.chat_id
+            )
             await self.app.store.vk_api.send_event_answer(
                 event_obj=event_obj,
             )
@@ -229,7 +229,7 @@ class BotGameProcessingState(BaseState):
                     {
                         "action": {
                             "type": "callback",
-                            "payload": f'{{"button": "cancel_game"}}',
+                            "payload": '{"button": "cancel_game"}',
                             "label": "Закончить игру",
                         },
                         "color": "negative",

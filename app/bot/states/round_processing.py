@@ -8,9 +8,7 @@ from app.vk_api.dataclasses import Event, Message
 class BotRoundProcessingState(BaseState):
     state_name = ChatState.round_processing
 
-    async def on_state_enter(
-        self, from_state: ChatState, **kwargs
-    ) -> None:
+    async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
         game = await self.app.store.games.get_game_by_status(
             chat_id=self.chat_id,
             status=GameStatus.in_progress,

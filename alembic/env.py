@@ -22,6 +22,7 @@ database_url = f"postgresql+asyncpg://{user}:{password}@{host}/{database}"
 
 config.set_main_option("sqlalchemy.url", database_url)
 
+from app.admin.models import AdminModel
 from app.chats.models import ChatModel
 # add your model's MetaData object here
 # for 'autogenerate' support

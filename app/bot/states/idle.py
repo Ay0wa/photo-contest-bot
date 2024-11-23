@@ -8,11 +8,11 @@ from app.bot.bot_messages import (
     IDLE_WITH_KEYBOARD_MESSAGE,
     MAIN_KEYBOARD,
 )
+from app.bot.enums import PayloadButton
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
 from app.players.models import PlayerStatus
 from app.vk_api.dataclasses import Event, Message
-from app.bot.enums import PayloadButton
 
 
 class BotIdleState(BaseState):

@@ -1,7 +1,6 @@
 import typing
 
 from app.chats.models import ChatState
-from app.games.models import GameModel
 from app.web.app import Application
 
 if typing.TYPE_CHECKING:

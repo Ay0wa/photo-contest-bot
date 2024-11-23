@@ -83,7 +83,7 @@ IDLE_START_GAME_MESSAGE = """
 """
 
 MAIN_KEYBOARD = {
-    "one_time": True,
+    "one_time": False,
     "buttons": [
         [
             {

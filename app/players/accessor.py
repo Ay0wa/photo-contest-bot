@@ -214,7 +214,7 @@ class PlayerAccesor(BaseAccessor):
                 )
                 raise
 
-    async def update_players_status(self, game_id: int, player_ids: list[int]):
+    async def set_players_in_game(self, game_id: int, player_ids: list[int]):
         async with self.app.database.session() as session:
             try:
                 query = (

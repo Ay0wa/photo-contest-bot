@@ -43,7 +43,7 @@ class BotManager:
             app=self.app,
             chat_id=chat_id,
         )
-        self.current_state = await self.state_context.init_state()
+        self.current_state = await self.state_context.get_state()
         if event_obj:
             await self.current_state.handle_events(
                 event_obj=event_obj,

@@ -18,7 +18,7 @@ class BotGameFinishedState(BaseState):
             game_id=game.id,
             status=PlayerStatus.winner,
         )
-        await self.send_winner(
+        await self._send_winner(
             username_winner=player.username,
         )
         await self.app.store.games.update_game_status(
@@ -29,7 +29,7 @@ class BotGameFinishedState(BaseState):
             new_state=ChatState.init,
         )
 
-    async def send_winner(self, username_winner) -> None:
+    async def _send_winner(self, username_winner) -> None:
         await self.app.store.vk_api.send_message(
             message=Message(
                 text=GAME_FINISHED_END_MESSAGE.format(username=username_winner),

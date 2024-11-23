@@ -13,31 +13,26 @@ class BotStartNewGameState(BaseState):
     state_name = ChatState.start_new_game
 
     async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
-        self.game = await self.create_game()
-        profiles = await self.get_profiles()
-
-        if len(profiles) > 2:
-            await self.create_players(
-                profiles=profiles,
-                game_id=self.game.id,
-            )
-            await self.context.change_current_state(
-                new_state=ChatState.round_processing,
-                game=self.game,
-            )
-        else:
-            await self.send_count_players_warning()
-            await self.context.change_current_state(
-                new_state=ChatState.idle,
-                game=self.game,
-            )
-
-    async def create_game(self) -> GameModel:
-        return await self.app.store.games.create_game(
+        profiles = await self._get_profiles()
+        game = await self.app.store.games.create_game(
             chat_id=self.chat_id,
         )
 
-    async def create_players(
+        if len(profiles) > 2:
+            await self._create_players(
+                profiles=profiles,
+                game_id=game.id,
+            )
+            await self.context.change_current_state(
+                new_state=ChatState.round_processing,
+            )
+        else:
+            await self._send_count_players_warning()
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+            )
+
+    async def _create_players(
         self, profiles: ProfileList, game_id: int
     ) -> list[PlayerModel]:
         players = []
@@ -51,13 +46,13 @@ class BotStartNewGameState(BaseState):
             players.append(player)
         return players
 
-    async def get_profiles(self):
+    async def _get_profiles(self):
         try:
             members = await self.app.store.vk_api.get_chat_members(
                 peer_id=self.chat_id,
             )
         except UnboundLocalError:
-            await self.send_permission_warning()
+            await self._send_permission_warning()
             await self.context.change_current_state(
                 new_state=ChatState.idle,
                 game=self.game,
@@ -65,7 +60,7 @@ class BotStartNewGameState(BaseState):
             return []
         return members.profiles
 
-    async def send_count_players_warning(self):
+    async def _send_count_players_warning(self):
         await self.app.store.vk_api.send_message(
             message=Message(
                 text=NEW_GAME_WARNING_MESSAGE,
@@ -73,7 +68,7 @@ class BotStartNewGameState(BaseState):
             peer_id=self.chat_id,
         )
 
-    async def send_permission_warning(self):
+    async def _send_permission_warning(self):
         await self.app.store.vk_api.send_message(
             message=Message(
                 text=NEW_GAME_PERMISSION_MESSAGE,

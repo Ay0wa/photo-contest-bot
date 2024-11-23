@@ -130,8 +130,14 @@ class VkApiAccessor(BaseAccessor):
             )
         ) as response:
             data = await response.json()
-            self.logger.info(data)
-            self.ts = data["ts"]
+            
+            try:
+                self.ts = data["ts"]
+                self.logger.info(data)
+            except KeyError:
+                await self.store.vk_api._get_long_poll_service()
+                await self.poll()
+                
             updates = [
                 UpdateSchema().load(update)
                 for update in data.get(

@@ -9,14 +9,19 @@ from app.chats.models import ChatState
 from app.games.models import GameModel, GameStatus
 from app.players.models import PlayerModel, PlayerStatus
 from app.vk_api.dataclasses import Event, Message
+from app.bot.enums import PayloadButton
 
 
 class BotGameProcessingState(BaseState):
     state_name = ChatState.game_processing
 
     async def on_state_enter(
-        self, from_state: ChatState, game: GameModel, **kwargs
+        self, from_state: ChatState, **kwargs
     ) -> None:
+        game = await self.app.store.games.get_game_by_status(
+            chat_id=self.chat_id,
+            status=GameStatus.in_progress,
+        )
         players = await self.app.store.players.get_players_by_round(
             game_id=game.id,
             current_round=game.current_round,
@@ -25,7 +30,7 @@ class BotGameProcessingState(BaseState):
         if len(players) == 1:
             await self.app.store.players.update_player_status(
                 game_id=game.id,
-                player_id=self.players[0].id,
+                player_id=players[0].id,
                 status=PlayerStatus.winner,
             )
             await self.context.change_current_state(
@@ -33,7 +38,7 @@ class BotGameProcessingState(BaseState):
                 game=game,
             )
 
-        players = await self.app.store.players.update_players_status(
+        players = await self.app.store.players.set_players_in_game(
             game_id=game.id,
             player_ids=[players[0].user_id, players[1].user_id],
         )
@@ -41,11 +46,11 @@ class BotGameProcessingState(BaseState):
         player1 = players[0]
         player2 = players[1]
 
-        await self.send_avatars(
+        await self._send_avatars(
             player1,
             player2,
         )
-        await self.send_poll(
+        await self._send_keyboard(
             players=[player1.username, player2.username],
         )
 
@@ -54,6 +59,15 @@ class BotGameProcessingState(BaseState):
             chat_id=self.chat_id,
             status=GameStatus.in_progress,
         )
+        if event_obj.payload.button == PayloadButton.cancel_game:
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+            )
+            await self.app.store.games.cancel_in_progress_game(chat_id=self.chat_id)
+            await self.app.store.vk_api.send_event_answer(
+                event_obj=event_obj,
+            )
+            return
         player = event_obj.payload.button
         user_voted_id = event_obj.from_id
 
@@ -75,7 +89,7 @@ class BotGameProcessingState(BaseState):
                 game_id=game.id,
             )
         else:
-            await self.send_vote_warning(
+            await self._send_vote_warning(
                 username_voted=user.username,
             )
 
@@ -84,8 +98,11 @@ class BotGameProcessingState(BaseState):
         ):
             await self.context.change_current_state(
                 new_state=ChatState.round_processing,
-                game=game,
             )
+            await self.app.store.vk_api.send_event_answer(
+                event_obj=event_obj,
+            )
+            return
         await self.app.store.vk_api.send_event_answer(
             event_obj=event_obj,
         )
@@ -106,13 +123,13 @@ class BotGameProcessingState(BaseState):
                     game_id=game.id,
                 )
             )
-            await self.send_result(
+            await self._send_result(
                 game=game,
                 winner=player_winner,
                 loser=player_loser,
             )
 
-    async def send_avatars(self, player1, player2) -> None:
+    async def _send_avatars(self, player1, player2) -> None:
         upload_photo_player1 = await self.app.store.vk_api.upload_photo(
             image_url=player1.avatar_url,
         )
@@ -132,7 +149,7 @@ class BotGameProcessingState(BaseState):
             peer_id=self.chat_id,
         )
 
-    async def send_result(
+    async def _send_result(
         self,
         game,
         winner: PlayerModel,
@@ -173,7 +190,7 @@ class BotGameProcessingState(BaseState):
                 peer_id=self.chat_id,
             )
 
-    async def send_vote_warning(self, username_voted: str):
+    async def _send_vote_warning(self, username_voted: str):
         await self.app.store.vk_api.send_message(
             message=Message(
                 text=GAME_PROCESSING_VOTE_WARNING_MESSAGE.format(
@@ -183,12 +200,12 @@ class BotGameProcessingState(BaseState):
             peer_id=self.chat_id,
         )
 
-    async def send_poll(
+    async def _send_keyboard(
         self,
         players: list[str],
     ):
         keyboard = {
-            "one_time": True,
+            "one_time": False,
             "buttons": [
                 [
                     {
@@ -207,7 +224,17 @@ class BotGameProcessingState(BaseState):
                         },
                         "color": "primary",
                     },
-                ]
+                ],
+                [
+                    {
+                        "action": {
+                            "type": "callback",
+                            "payload": f'{{"button": "cancel_game"}}',
+                            "label": "Закончить игру",
+                        },
+                        "color": "negative",
+                    },
+                ],
             ],
         }
 

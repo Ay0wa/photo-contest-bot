@@ -86,6 +86,7 @@ class GameAccesor(BaseAccessor):
                 update(GameModel)
                 .values(status=GameStatus.canceled)
                 .where(GameModel.status == GameStatus.in_progress)
+                .where(GameModel.chat_id == chat_id)
             )
 
             await session.execute(query)

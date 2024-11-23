@@ -6,7 +6,6 @@ from app.store import Store
 
 
 class TestGameAccessor:
-
     async def test_create_game(
         self, db_sessionmaker: async_sessionmaker[AsyncSession], store: Store
     ) -> None:

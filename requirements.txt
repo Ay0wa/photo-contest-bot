@@ -34,3 +34,5 @@ webargs==8.4.0
 yarl==1.9.4
 black==24.10.0
 python-dotenv==1.0.1
+isort==5.13.2
+autoflake==2.3.1

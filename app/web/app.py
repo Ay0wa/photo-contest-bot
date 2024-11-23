@@ -1,6 +1,4 @@
-from aiohttp.web import (
-    Application as AiohttpApplication,
-)
+from aiohttp.web import Application as AiohttpApplication
 
 from app.database.database import Database
 from app.store.store import Store, setup_store

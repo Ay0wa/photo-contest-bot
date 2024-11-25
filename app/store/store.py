@@ -10,18 +10,18 @@ class Store:
     def __init__(self, app: "Application", *args, **kwargs):
         from app.admin.accessor import AdminAccessor
         from app.bot.manager import BotManager
-        from app.chats.accessor import ChatAccesor
-        from app.games.accessor import GameAccesor
-        from app.players.accessor import PlayerAccesor
+        from app.chats.accessor import ChatAccessor
+        from app.games.accessor import GameAccessor
+        from app.players.accessor import PlayerAccessor
         from app.vk_api.accessor import VkApiAccessor
 
         self.app = app
         self.admins = AdminAccessor(app)
         self.vk_api = VkApiAccessor(app)
         self.bots_manager = BotManager(app)
-        self.chats = ChatAccesor(app)
-        self.players = PlayerAccesor(app)
-        self.games = GameAccesor(app)
+        self.chats = ChatAccessor(app)
+        self.players = PlayerAccessor(app)
+        self.games = GameAccessor(app)
 
 
 def setup_store(app: "Application"):

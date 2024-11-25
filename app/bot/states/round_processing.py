@@ -2,7 +2,8 @@ from app.bot.bot_messages import ROUND_START_MESSAGE
 from app.bot.states.base.base import BaseState
 from app.chats.models import ChatState
 from app.games.models import GameModel, GameStatus
-from app.vk_api.dataclasses import Event, Message
+from app.players.models import PlayerStatus
+from app.vk_api.dataclasses import Message
 
 
 class BotRoundProcessingState(BaseState):
@@ -13,22 +14,21 @@ class BotRoundProcessingState(BaseState):
             chat_id=self.chat_id,
             status=GameStatus.in_progress,
         )
+        players = await self.app.store.players.get_players_by_status(
+            game_id=game.id,
+            status=PlayerStatus.voting,
+        )
         await self.app.store.players.reset_votes_for_players_in_game(
             game_id=game.id,
         )
-        game = await self.app.store.games.update_current_round(
-            game_id=game.id,
-        )
-        await self._send_message(game=game)
+        if len(players) != 1:
+            game = await self.app.store.games.update_current_round(
+                game_id=game.id,
+            )
+            await self._send_message(game=game)
         await self.context.change_current_state(
             new_state=ChatState.game_processing,
         )
-
-    async def handle_events(self, event_obj: Event) -> None:
-        if event_obj.payload.button == "cancel_game":
-            await self.context.change_current_state(
-                new_state=ChatState.idle,
-            )
 
     async def _send_message(self, game: GameModel) -> None:
         await self.app.store.vk_api.send_message(

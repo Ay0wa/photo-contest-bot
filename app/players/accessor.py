@@ -201,7 +201,7 @@ class PlayerAccessor(BaseAccessor):
                 raise
             return player
 
-    async def get_player_by_status(
+    async def get_players_by_status(
         self, game_id: int, status: PlayerStatus
     ) -> PlayerModel | None:
         async with self.app.database.session() as session:
@@ -211,8 +211,8 @@ class PlayerAccessor(BaseAccessor):
                     & (PlayerModel.status == status)
                 )
                 result = await session.execute(query)
-                player = result.scalars().one_or_none()
-                if player:
+                players = result.scalars().all()
+                if players:
                     self.logger.info("Player retrieved by status successfully")
                 else:
                     self.logger.warning("No player found with given status")
@@ -226,7 +226,7 @@ class PlayerAccessor(BaseAccessor):
                     "Unexpected error while retrieving player by status"
                 )
                 raise
-            return player
+            return players
 
     async def list_players(self) -> list[PlayerModel]:
         async with self.app.database.session() as session:

@@ -14,19 +14,19 @@ class BotGameFinishedState(BaseState):
             chat_id=self.chat_id,
             status=GameStatus.in_progress,
         )
-        player = await self.app.store.players.get_player_by_status(
+        player = await self.app.store.players.get_players_by_status(
             game_id=game.id,
             status=PlayerStatus.winner,
         )
         await self._send_winner(
-            username_winner=player.username,
+            username_winner=player[0].username,
         )
         await self.app.store.games.update_game_status(
             game_id=game.id,
-            new_status=GameStatus.canceled,
+            new_status=GameStatus.finished,
         )
         await self.context.change_current_state(
-            new_state=ChatState.init,
+            new_state=ChatState.idle,
         )
 
     async def _send_winner(self, username_winner) -> None:

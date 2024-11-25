@@ -74,11 +74,11 @@ class BotIdleState(BaseState):
             chat_id=self.chat_id,
         )
         if last_game:
-            winner = await self.app.store.players.get_player_by_status(
+            winner = await self.app.store.players.get_players_by_status(
                 game_id=last_game.id,
                 status=PlayerStatus.winner,
             )
-            text = IDLE_LAST_GAME_MESSAGE.format(username=winner.username)
+            text = IDLE_LAST_GAME_MESSAGE.format(username=winner[0].username)
         else:
             text = IDLE_NONE_GAMES
         await self.app.store.vk_api.send_message(

@@ -34,6 +34,7 @@ class StateContext:
     ) -> None:
         await self.state.on_state_exit(
             to_state=new_state,
+            payload=payload,
         )
         await self.app.store.chats.update_bot_state(
             chat_id=self.chat_id,

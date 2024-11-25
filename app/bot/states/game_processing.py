@@ -1,4 +1,5 @@
 from app.bot.bot_messages import (
+    GAME_PROCESSING_CANCEL_MESSAGE,
     GAME_PROCESSING_START_VOTING,
     GAME_PROCESSING_TIE_MESSAGE,
     GAME_PROCESSING_VOTE_WARNING_MESSAGE,
@@ -33,8 +34,8 @@ class BotGameProcessingState(BaseState):
             )
             await self.context.change_current_state(
                 new_state=ChatState.game_finished,
-                game=game,
             )
+            return
 
         players = await self.app.store.players.set_players_in_game(
             game_id=game.id,
@@ -58,14 +59,18 @@ class BotGameProcessingState(BaseState):
             status=GameStatus.in_progress,
         )
         if event_obj.payload.button == PayloadButton.cancel_game:
-            await self.context.change_current_state(
-                new_state=ChatState.idle,
-            )
             await self.app.store.games.cancel_in_progress_game(
-                chat_id=self.chat_id
+                chat_id=self.chat_id,
             )
             await self.app.store.vk_api.send_event_answer(
                 event_obj=event_obj,
+            )
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+                payload={
+                    "button": PayloadButton.cancel_game,
+                    "from_id": event_obj.from_id,
+                },
             )
             return
         player = event_obj.payload.button
@@ -108,7 +113,10 @@ class BotGameProcessingState(BaseState):
         )
 
     async def on_state_exit(self, to_state: ChatState, **kwargs) -> None:
-        if to_state != ChatState.game_finished:
+        if (
+            to_state != ChatState.game_finished
+            and kwargs.get("payload") is None
+        ):
             game = await self.app.store.games.get_game_by_status(
                 chat_id=self.chat_id,
                 status=GameStatus.in_progress,
@@ -127,6 +135,13 @@ class BotGameProcessingState(BaseState):
                 game=game,
                 winner=player_winner,
                 loser=player_loser,
+            )
+        elif (
+            to_state != ChatState.game_finished
+            and kwargs.get("payload").get("button") == PayloadButton.cancel_game
+        ):
+            await self._send_cancel_game_result(
+                user_id=kwargs.get("payload").get("from_id")
             )
 
     async def _send_avatars(self, player1, player2) -> None:
@@ -247,4 +262,12 @@ class BotGameProcessingState(BaseState):
             ),
             peer_id=self.chat_id,
             keyboard=keyboard,
+        )
+
+    async def _send_cancel_game_result(self, user_id: int):
+        await self.app.store.vk_api.send_message(
+            message=Message(
+                text=GAME_PROCESSING_CANCEL_MESSAGE.format(user_id=user_id),
+            ),
+            peer_id=self.chat_id,
         )

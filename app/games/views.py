@@ -11,27 +11,18 @@ class GameListView(AuthRequiredMixin, View):
     @querystring_schema(GameQuerySchema)
     @response_schema(ListGameSchema, 200)
     async def get(self):
-        chat_id = self.request.query.get("chat_id")
-        game_id = self.request.query.get("game_id")
-        status = self.request.query.get("status")
-        current_round = self.request.query.get("current_round")
+        query_params = GameQuerySchema().load(self.request.query)
 
-        if game_id:
-            game = await self.store.games.get_game_by_id(game_id=int(game_id))
+        if query_params.get("game_id"):
+            game = await self.store.games.get_game_by_id(
+                game_id=int(query_params["game_id"]),
+            )
+            if not game:
+                self.logger.error("No game found by game_id")
+                return json_response(data={"game": []}, status=404)
             return json_response(data=GameSchema().dump(game))
 
-        filters = {}
-
-        if chat_id:
-            filters["chat_id"] = int(chat_id)
-
-        if status:
-            filters["status"] = status
-
-        if current_round:
-            filters["current_round"] = int(current_round)
-
-        games = await self.store.games.get_games_by_filters(filters)
+        games = await self.store.games.get_games_by_filters(query_params)
 
         if not games:
             self.logger.error("No games found for the specified filters")

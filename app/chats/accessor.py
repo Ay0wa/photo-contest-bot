@@ -11,60 +11,30 @@ class ChatAccessor(BaseAccessor):
         self, chat_id: int, bot_state: str | None = None
     ) -> ChatModel:
         async with self.app.database.session() as session:
-            try:
-                existing_chat = await session.execute(
-                    select(ChatModel).filter(ChatModel.chat_id == chat_id)
-                )
-                existing_chat = existing_chat.scalars().first()
+            existing_chat = await session.execute(
+                select(ChatModel).filter(ChatModel.chat_id == chat_id)
+            )
+            existing_chat = existing_chat.scalars().first()
 
-                if existing_chat:
-                    self.logger.info("Existing chat found successfully")
-                    return existing_chat
+            if existing_chat:
+                self.logger.info("Existing chat found successfully")
+                return existing_chat
 
-                chat = ChatModel(chat_id=chat_id, bot_state=bot_state)
-                session.add(chat)
-                await session.commit()
-                self.logger.info("New chat created successfully")
-            except IntegrityError:
-                await session.rollback()
-                self.logger.error(
-                    "IntegrityError occurred while creating or retrieving chat"
-                )
-                raise
-            except SQLAlchemyError:
-                await session.rollback()
-                self.logger.error(
-                    "SQLAlchemyError occurred while creating or retrieving chat"
-                )
-                raise
-            except Exception:
-                await session.rollback()
-                self.logger.error(
-                    "Unexpected error while creating or retrieving chat"
-                )
-                raise
+            chat = ChatModel(chat_id=chat_id, bot_state=bot_state)
+            session.add(chat)
+            await session.commit()
+            self.logger.info("New chat created successfully")
             return chat
 
     async def get_by_chat_id(self, chat_id: int) -> ChatModel | None:
         async with self.app.database.session() as session:
-            try:
-                query = select(ChatModel).where(ChatModel.chat_id == chat_id)
-                result = await session.execute(query)
-                chat = result.scalars().first()
-                if chat:
-                    self.logger.info("Chat retrieved successfully by chat_id")
-                else:
-                    self.logger.warning("No chat found for chat_id=%s", chat_id)
-            except SQLAlchemyError:
-                self.logger.error(
-                    "SQLAlchemyError occurred while retrieving chat by chat_id"
-                )
-                raise
-            except Exception:
-                self.logger.error(
-                    "Unexpected error occurred while retrieving chat by chat_id"
-                )
-                raise
+            query = select(ChatModel).where(ChatModel.chat_id == chat_id)
+            result = await session.execute(query)
+            chat = result.scalars().first()
+            if chat:
+                self.logger.info("Chat retrieved successfully by chat_id")
+            else:
+                self.logger.warning("No chat found for chat_id=%s", chat_id)
             return chat
 
     async def list_chats(self) -> list[ChatModel] | None:

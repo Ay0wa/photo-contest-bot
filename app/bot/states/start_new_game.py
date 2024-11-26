@@ -12,12 +12,19 @@ class BotStartNewGameState(BaseState):
     state_name = ChatState.start_new_game
 
     async def on_state_enter(self, from_state: ChatState, **kwargs) -> None:
-        profiles = await self._get_profiles()
-        game = await self.app.store.games.create_game(
-            chat_id=self.chat_id,
-        )
+        try:
+            profiles = await self._get_profiles()
+        except Exception:
+            await self._send_permission_warning()
+            await self.context.change_current_state(
+                new_state=ChatState.idle,
+            )
+            return
 
         if len(profiles) > 2:
+            game = await self.app.store.games.create_game(
+                chat_id=self.chat_id,
+            )
             await self._create_players(
                 profiles=profiles,
                 game_id=game.id,
@@ -46,17 +53,9 @@ class BotStartNewGameState(BaseState):
         return players
 
     async def _get_profiles(self):
-        try:
-            members = await self.app.store.vk_api.get_chat_members(
-                peer_id=self.chat_id,
-            )
-        except UnboundLocalError:
-            await self._send_permission_warning()
-            await self.context.change_current_state(
-                new_state=ChatState.idle,
-                game=self.game,
-            )
-            return []
+        members = await self.app.store.vk_api.get_chat_members(
+            peer_id=self.chat_id,
+        )
         return members.profiles
 
     async def _send_count_players_warning(self):

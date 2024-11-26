@@ -60,32 +60,33 @@ class GameAccessor(BaseAccessor):
                 raise
             return game
 
-    async def get_last_game(
-        self,
-        chat_id: int,
-    ) -> GameModel | None:
+    async def get_last_game(self, chat_id: int) -> GameModel | None:
         async with self.app.database.session() as session:
             try:
                 query = (
                     select(GameModel)
                     .where(GameModel.chat_id == chat_id)
                     .where(GameModel.status == GameStatus.finished)
+                    .order_by(GameModel.id.desc())
                 )
                 result = await session.execute(query)
                 game = result.scalars().first()
+
                 if game:
                     self.logger.info(
-                        "Last finished game retrieved successfully"
+                        "Last finished game retrieved successfully",
                     )
                 else:
-                    self.logger.warning(
-                        "No finished games found for chat_id=%s", chat_id
-                    )
+                    self.logger.warning("No finished games found")
             except SQLAlchemyError:
-                self.logger.error("SQLAlchemyError during last game retrieval")
+                self.logger.error(
+                    "SQLAlchemyError while retrieving the last finished game",
+                )
                 raise
             except Exception:
-                self.logger.error("Unexpected error during last game retrieval")
+                self.logger.error(
+                    "Unexpected error while retrieving the last finished game",
+                )
                 raise
             return game
 

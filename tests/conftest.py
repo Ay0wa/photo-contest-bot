@@ -5,7 +5,6 @@ from collections.abc import Iterator
 import pytest
 from aiohttp.pytest_plugin import AiohttpClient
 from aiohttp.test_utils import TestClient, loop_context
-from dotenv import load_dotenv
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -22,19 +21,10 @@ from app.web.app import Application, setup_app
 
 
 @pytest.fixture(scope="session", autouse=True)
-def load_test_env():
-    load_dotenv(".env.test")
-
-
-@pytest.fixture(scope="session", autouse=True)
 def apply_migrations(application: Application):
     alembic_cfg = Config("alembic.ini")
 
     command.upgrade(alembic_cfg, "head")
-
-    yield
-
-    command.downgrade(alembic_cfg, "base")
 
 
 @pytest.fixture(scope="session")
@@ -89,19 +79,34 @@ async def inspect_list_tables(db_engine: AsyncEngine) -> list[str]:
 async def clear_db(application: Application) -> Iterator[None]:
     try:
         yield
-    except Exception as err:
-        logging.warning(err)
+    except Exception:
+        logging.warning("Ошибка при тестировании")
     finally:
-        session = AsyncSession(application.database.engine)
-        connection = session.connection()
-        for table in application.database._db.metadata.tables:
-            await session.execute(text(f"TRUNCATE {table} CASCADE"))
-            await session.execute(
-                text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH 1"),
-            )
+        async_session = AsyncSession(application.database.engine)
+        async with async_session.begin():
+            connection = await async_session.connection()
 
-        await session.commit()
-        connection.close()
+            for table in application.database._db.metadata.tables.values():
+                await connection.execute(text(f"TRUNCATE {table} CASCADE"))
+                await connection.execute(
+                    text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH 1"),
+                )
+            enum_types = await connection.execute(
+                text("""
+                SELECT typname
+                FROM pg_type
+                WHERE typcategory = 'E';
+            """)
+            )
+            enum_types = enum_types.fetchall()
+
+            for enum in enum_types:
+                enum_name = enum[0]
+                await connection.execute(
+                    text(f"DROP TYPE IF EXISTS {enum_name} CASCADE")
+                )
+
+        await async_session.close()
 
 
 @pytest.fixture

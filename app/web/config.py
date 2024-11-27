@@ -22,6 +22,26 @@ token = os.getenv("VK_TOKEN")
 group_id = os.getenv("GROUP_ID")
 
 
+# SESSION SETTINGS
+key = os.getenv("SECRET_KEY")
+
+
+# ADMIN SETTINGS
+email = os.getenv("EMAIL")
+admin_password = os.getenv("ADMIN_PASSWORD")
+
+
+@dataclass
+class SessionConfig:
+    key: str
+
+
+@dataclass
+class AdminConfig:
+    email: str
+    password: str
+
+
 @dataclass
 class DatabaseConfig:
     host: str
@@ -39,12 +59,21 @@ class BotConfig:
 
 @dataclass
 class Config:
+    session: SessionConfig | None = None
+    admin: AdminConfig | None = None
     bot: BotConfig | None = None
     database: DatabaseConfig | None = None
 
 
 def setup_config(app: "Application"):
     app.config = Config(
+        session=SessionConfig(
+            key=key,
+        ),
+        admin=AdminConfig(
+            email=email,
+            password=admin_password,
+        ),
         bot=BotConfig(
             token=token,
             group_id=group_id,

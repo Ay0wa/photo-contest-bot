@@ -1,12 +1,12 @@
 from sqlalchemy import or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.base.base_accessor import BaseAccessor
 
 from .models import PlayerModel, PlayerStatus
 
 
-class PlayerAccesor(BaseAccessor):
+class PlayerAccessor(BaseAccessor):
     async def create_player(
         self, user_id: int, username: str, avatar_url: str, game_id: int
     ) -> PlayerModel:
@@ -20,14 +20,44 @@ class PlayerAccesor(BaseAccessor):
             try:
                 session.add(player)
                 await session.commit()
+                self.logger.info("Player created successfully")
             except IntegrityError:
                 await session.rollback()
-                self.logger.error("IntegrityError при создании игрока")
+                self.logger.error("IntegrityError while creating player")
+                raise
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error("SQLAlchemyError while creating player")
                 raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при создании игрока:")
+                self.logger.error("Unexpected error while creating player")
                 raise
+            return player
+
+    async def get_player_by_id(self, player_id: int) -> PlayerModel | None:
+        async with self.app.database.session() as session:
+            try:
+                query = select(PlayerModel).where(PlayerModel.id == player_id)
+                result = await session.execute(query)
+                player = result.scalars().first()
+                if player:
+                    self.logger.info(
+                        "Player retrieved by player_id successfully"
+                    )
+                else:
+                    self.logger.warning("Player not found by player_id")
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving player by game_id"
+                )
+                raise
+            except Exception:
+                self.logger.error(
+                    "Unexpected error while retrieving player by game_id"
+                )
+                raise
+            return player
 
     async def get_players_by_game_id(self, game_id: int) -> list[PlayerModel]:
         async with self.app.database.session() as session:
@@ -36,16 +66,23 @@ class PlayerAccesor(BaseAccessor):
                     PlayerModel.game_id == game_id
                 )
                 result = await session.execute(query)
-                return result.scalars().all()
+                players = result.scalars().all()
+                self.logger.info("Players retrieved by game_id successfully")
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving players by game_id"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    "Ошибка при получении игроков по game_id:",
+                    "Unexpected error while retrieving players by game_id"
                 )
-                return []
+                raise
+            return players
 
     async def get_player_by_user_id(
         self, game_id: int, user_id: int
-    ) -> PlayerModel:
+    ) -> PlayerModel | None:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -54,12 +91,26 @@ class PlayerAccesor(BaseAccessor):
                     .where(PlayerModel.game_id == game_id)
                 )
                 result = await session.execute(query)
-                return result.scalars().first()
+                player = result.scalars().first()
+                if player:
+                    self.logger.info(
+                        "Player retrieved by game_id and user_id successfully"
+                    )
+                else:
+                    self.logger.warning(
+                        "Player not found by game_id and user_id"
+                    )
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving player by game_id"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    "Ошибка при получении игроков по game_id и user_id:",
+                    "Unexpected error while retrieving player by game_id,user_id"  # noqa: E501
                 )
-                return None
+                raise
+            return player
 
     async def get_players_by_round(
         self, current_round: int, game_id: int, status: PlayerStatus
@@ -72,14 +123,25 @@ class PlayerAccesor(BaseAccessor):
                     .where(PlayerModel.status == status)
                 )
                 result = await session.execute(query)
-                return result.scalars().all()
+                players = result.scalars().all()
+                self.logger.info(
+                    "Players retrieved for current round successfully"
+                )
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving players for round"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    "Ошибка при получении игроков в текущем раунде:",
+                    "Unexpected error while retrieving players for round"
                 )
-                return []
+                raise
+            return players
 
-    async def get_player_with_max_votes(self, game_id: int) -> PlayerModel:
+    async def get_player_with_max_votes(
+        self, game_id: int
+    ) -> PlayerModel | None:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -91,25 +153,26 @@ class PlayerAccesor(BaseAccessor):
                     .order_by(PlayerModel.votes.desc())
                 )
                 result = await session.execute(query)
+                player = result.scalars().first()
+                if player:
+                    self.logger.info("Player with maximum votes found")
+                else:
+                    self.logger.warning("No players with votes found in game")
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving player with max votes"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    """Ошибка при выполнении запроса для получения игрока 
-                    с максимальным количеством голосов""",
+                    "Unexpected error while retrieving player with max votes"
                 )
-                return None
-
-            player = result.scalars().first()
-
-            if not player:
-                self.logger.info("Игроки с голосами в игре не найдены.")
-            else:
-                self.logger.info(
-                    "Игрок с максимальным количеством голосов в игре найден."
-                )
-
+                raise
             return player
 
-    async def get_player_with_min_votes(self, game_id: int):
+    async def get_player_with_min_votes(
+        self, game_id: int
+    ) -> PlayerModel | None:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -121,27 +184,26 @@ class PlayerAccesor(BaseAccessor):
                     .order_by(PlayerModel.votes.asc())
                 )
                 result = await session.execute(query)
+                player = result.scalars().first()
+                if player:
+                    self.logger.info("Player with minimum votes found")
+                else:
+                    self.logger.warning("No players with votes found in game")
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving player with min votes"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    """Ошибка при выполнении запроса для получения игрока 
-                    с минимальным количеством голосов""",
+                    "Unexpected error while retrieving player with min votes"
                 )
-                return None
-
-            player = result.scalars().first()
-
-            if not player:
-                self.logger.info("Игроки с голосами в игре не найдены.")
-            else:
-                self.logger.info(
-                    "Игрок с минимальным количеством голосов в игре найден."
-                )
-
+                raise
             return player
 
-    async def get_player_by_status(
+    async def get_players_by_status(
         self, game_id: int, status: PlayerStatus
-    ) -> PlayerModel:
+    ) -> PlayerModel | None:
         async with self.app.database.session() as session:
             try:
                 query = select(PlayerModel).where(
@@ -149,11 +211,80 @@ class PlayerAccesor(BaseAccessor):
                     & (PlayerModel.status == status)
                 )
                 result = await session.execute(query)
-                return result.scalars().one_or_none()
+                players = result.scalars().all()
+                if players:
+                    self.logger.info("Player retrieved by status successfully")
+                else:
+                    self.logger.warning("No player found with given status")
+            except SQLAlchemyError:
+                self.logger.error(
+                    "SQLAlchemyError while retrieving player by status"
+                )
+                raise
             except Exception:
                 self.logger.error(
-                    "Ошибка при получении игроков по статусу",
+                    "Unexpected error while retrieving player by status"
                 )
+                raise
+            return players
+
+    async def list_players(self) -> list[PlayerModel]:
+        async with self.app.database.session() as session:
+            try:
+                query = select(PlayerModel)
+                result = await session.execute(query)
+                games = result.scalars().all()
+                self.logger.info("Players retrieved successfully")
+            except SQLAlchemyError:
+                self.logger.error("SQLAlchemyError during games listing")
+                raise
+            except Exception:
+                self.logger.error("Unexpected error during games listing")
+                raise
+            return games
+
+    async def get_players_by_filters(self, filters: dict):
+        async with self.app.database.session() as session:
+            try:
+                query = select(PlayerModel)
+
+                if "user_id" in filters:
+                    query = query.where(
+                        PlayerModel.user_id == filters["user_id"]
+                    )
+
+                if "game_id" in filters:
+                    query = query.where(
+                        PlayerModel.game_id == filters["game_id"]
+                    )
+
+                if "status" in filters:
+                    query = query.where(PlayerModel.status == filters["status"])
+
+                if "votes" in filters:
+                    query = query.where(PlayerModel.votes == filters["votes"])
+
+                if "is_voted" in filters:
+                    query = query.where(
+                        PlayerModel.is_voted == filters["is_voted"]
+                    )
+
+                result = await session.execute(query)
+                return result.scalars().all()
+
+            except IntegrityError:
+                self.logger.error(
+                    "Database error while fetching games with filters"
+                )
+                await session.rollback()
+                raise
+
+            except Exception:
+                self.logger.error(
+                    "Unknown error while fetching games with filters"
+                )
+                await session.rollback()
+                raise
 
     async def update_round(self, player_id: int, new_round: int) -> PlayerModel:
         async with self.app.database.session() as session:
@@ -166,17 +297,26 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 await session.commit()
+                self.logger.info(
+                    "Round updated successfully for player_id=%s", player_id
+                )
                 return result.scalar_one()
             except IntegrityError:
                 await session.rollback()
-                self.logger.error("IntegrityError при обновлении раунда")
+                self.logger.error("IntegrityError while updating round")
+                raise
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error("SQLAlchemyError while updating round")
                 raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при обновлении раунда")
+                self.logger.error("Unexpected error while updating round")
                 raise
 
-    async def update_voted(self, game_id: int, player_id: int, new_voted: bool):
+    async def update_voted(
+        self, game_id: int, player_id: int, new_voted: bool
+    ) -> PlayerModel:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -188,13 +328,26 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 await session.commit()
+                self.logger.info(
+                    "Vote status updated successfully for player_id",
+                )
                 return result.scalar_one()
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error(
+                    "SQLAlchemyError while updating vote status for player_id",
+                )
+                raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при обновлении is_voted")
+                self.logger.error(
+                    "Unexpected error while updating vote status for player_id",
+                )
                 raise
 
-    async def update_votes_by_username(self, username: str, game_id: int):
+    async def update_votes_by_username(
+        self, username: str, game_id: int
+    ) -> PlayerModel:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -206,15 +359,28 @@ class PlayerAccesor(BaseAccessor):
                 )
                 result = await session.execute(query)
                 await session.commit()
+                self.logger.info(
+                    "Votes updated successfully for username=%s", username
+                )
                 return result.scalar_one()
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error(
+                    "SQLAlchemyError while updating votes for username=%s",
+                    username,
+                )
+                raise
             except Exception:
                 await session.rollback()
                 self.logger.error(
-                    "Ошибка при обновлении голосов по имени пользователя",
+                    "Unexpected error while updating votes for username=%s",
+                    username,
                 )
                 raise
 
-    async def update_players_status(self, game_id: int, player_ids: list[int]):
+    async def set_players_in_game(
+        self, game_id: int, player_ids: list[int]
+    ) -> list[PlayerModel]:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -226,15 +392,23 @@ class PlayerAccesor(BaseAccessor):
                     .values(status=PlayerStatus.in_game)
                     .returning(PlayerModel)
                 )
-
                 result = await session.execute(query)
                 await session.commit()
-
+                self.logger.info(
+                    "Players status updated to in_game for game_id=%s", game_id
+                )
                 return result.scalars().all()
-
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error(
+                    "SQLAlchemyError while updating players' status to in_game"
+                )
+                raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при обновлении статуса")
+                self.logger.error(
+                    "Unexpected error while updating players' status to in_game"
+                )
                 raise
 
     async def update_player_status(
@@ -245,20 +419,30 @@ class PlayerAccesor(BaseAccessor):
                 query = (
                     update(PlayerModel)
                     .where(
-                        PlayerModel.id == player_id
-                        and PlayerModel.game_id == game_id
+                        (PlayerModel.id == player_id)
+                        & (PlayerModel.game_id == game_id)
                     )
                     .values(status=status)
                 )
-
                 await session.execute(query)
                 await session.commit()
+                self.logger.info(
+                    "Player status updated successfully by player_id,game_id",
+                )
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error(
+                    "SQLAlchemyError while updating player status by player_id",
+                )
+                raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при обновлении статуса")
+                self.logger.error(
+                    "Unexpected error while updating status by player_id",
+                )
                 raise
 
-    async def check_all_votes_true_for_game(self, game_id: int):
+    async def check_all_votes_true_for_game(self, game_id: int) -> bool:
         async with self.app.database.session() as session:
             try:
                 query = (
@@ -273,7 +457,6 @@ class PlayerAccesor(BaseAccessor):
                     )
                     .where(PlayerModel.is_voted)
                 )
-
                 result = await session.execute(query)
                 players = result.scalars().all()
 
@@ -287,18 +470,26 @@ class PlayerAccesor(BaseAccessor):
                         )
                     )
                 )
-
                 total_players_result = await session.execute(
                     query_total_players
                 )
                 total_players = total_players_result.scalars().all()
 
-                return len(players) == len(total_players)
-            except Exception:
+                all_voted = len(players) == len(total_players)
+                self.logger.info("All players voted: %s", all_voted)
+            except SQLAlchemyError:
                 self.logger.error(
-                    "Ошибка при проверке проголосовавших участников",
+                    "SQLAlchemyError while checking votes for game_id=%s",
+                    game_id,
                 )
                 raise
+            except Exception:
+                self.logger.error(
+                    "Unexpected error while checking votes for game_id=%s",
+                    game_id,
+                )
+                raise
+            return all_voted
 
     async def reset_votes_for_players_in_game(self, game_id: int):
         async with self.app.database.session() as session:
@@ -310,6 +501,21 @@ class PlayerAccesor(BaseAccessor):
                 )
                 await session.execute(query)
                 await session.commit()
+                self.logger.info(
+                    "Votes reset successfully for all players in game_id=%s",
+                    game_id,
+                )
+            except SQLAlchemyError:
+                await session.rollback()
+                self.logger.error(
+                    "SQLAlchemyError while resetting votes for game_id=%s",
+                    game_id,
+                )
+                raise
             except Exception:
                 await session.rollback()
-                self.logger.error("Ошибка при сброса голосов")
+                self.logger.error(
+                    "Unexpected error while resetting votes for game_id=%s",
+                    game_id,
+                )
+                raise

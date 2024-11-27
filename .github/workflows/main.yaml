@@ -32,10 +32,10 @@ jobs:
 
       - name: Build and push app Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/photo-contest-bot-server:latest ./photo-contest-bot
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/photo-contest-bot-server:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/photo-contest-bot-server:latest
 
       - name: Build and push db Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/postgres:latest ./photo-contest-bot
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/postgres:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/postgres:latest

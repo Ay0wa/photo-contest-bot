@@ -1,0 +1,65 @@
+services:
+  server:
+    build:
+      context: .
+    command: ["sh", "-c", "alembic upgrade head && python main.py"]
+    ports:
+      - 8080:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - SECRET_KEY=${SECRET_KEY}
+      - EMAIL=${EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - VK_TOKEN=${VK_TOKEN}
+      - GROUP_ID=${GROUP_ID}
+
+  db:
+    image: postgres
+    restart: always
+    user: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    expose:
+      - 5432
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # tests:
+  #   build:
+  #     context: .
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   command: ["sh", "-c", "pytest --disable-warnings"]
+  #   environment:
+  #     - DB_NAME=${TEST_DB_NAME}
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - DB_HOST=db
+  #     - DB_PORT=5432
+  #     - SECRET_KEY=${SECRET_KEY}
+  #     - EMAIL=${EMAIL}
+  #     - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+  #     - VK_TOKEN=${VK_TOKEN}
+  #     - GROUP_ID=${GROUP_ID}
+  #   volumes:
+  #     - db-test-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
